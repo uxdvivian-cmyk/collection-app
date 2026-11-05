@@ -134,7 +134,7 @@ a { color: var(--acc); }
 .syncbar .zh { margin: 2px 0 0; }
 
 /* 同系列的群組：一張卡片，沒有標題，每列是完整書名＋集數 */
-.sg-card { background: var(--card); border: 1px solid var(--line); border-left: 2px solid var(--acc); border-radius: 4px 10px 10px 4px; margin-bottom: 8px; overflow: visible; }
+.sg-card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--acc); border-radius: 4px 10px 10px 4px; margin-bottom: 8px; overflow: visible; }
 .sg-card .item { border: 0; border-radius: 0; margin: 0; background: transparent; }
 .sg-card .item + .item { border-top: 1px solid var(--line); }
 .sg-card .gnote { color: var(--mut); font-size: 13px; padding: 8px 12px; border-top: 1px dashed var(--line); }
