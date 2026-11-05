@@ -21,7 +21,7 @@ const num = (s: string) => (s.trim() === '' ? undefined : Number(s))
 export default function BookEditor({ book, prefill, books, tagPool, onClose }: Props) {
   const init: Partial<Book> = book ?? prefill ?? {}
   const [title, setTitle] = useState(init.title ?? '')
-  const [isbn, setIsbn] = useState(init.isbn ?? '')
+  const isbn = init.isbn ?? '' // 由掃描帶入，不在這裡手動編輯；用來比對重複
   const [genre, setGenre] = useState<BookGenre>(init.genre ?? 'BL')
   const [condition, setCondition] = useState<Condition>(init.condition ?? 'new')
   const [source, setSource] = useState<BookSource>(init.bookSource ?? 'online')
@@ -104,7 +104,7 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
       )}
 
       <label>書名<input type="search" value={title} onChange={(e) => { setTitle(e.target.value); setDups([]) }} /></label>
-      <label>ISBN（選填）<input type="search" inputMode="numeric" value={isbn} onChange={(e) => { setIsbn(e.target.value); setDups([]) }} /></label>
+      {isbn && <p className="hint">ISBN {isbn}</p>}
 
       <div className="lbl">分類
         <div className="seg2 three">
