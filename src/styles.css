@@ -148,12 +148,15 @@ a { color: var(--acc); }
   position: fixed; inset: 0; background: var(--shade); display: grid; place-items: center; z-index: 20;
   padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
-.modal { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; width: 100%; max-width: 480px; max-height: 100%; overflow: auto; }
-.modal h3 { margin: 0 0 12px; font-size: 16px; }
+.modal { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 12px; width: 100%; max-width: 480px; max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.modal h3 { flex: none; margin: 0 0 12px; font-size: 16px; }
+/* 只有這一塊可以上下捲動，不會左右捲動；標題與底部按鈕固定不動 */
+.modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.modal-body > *, .modal-body label, .modal-body input { max-width: 100%; }
 .lbl, .modal label { display: grid; gap: 4px; font-size: 13px; color: var(--mut); margin-bottom: 10px; }
 .modal .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .modal .two.sv { grid-template-columns: 1fr 96px; }
-.modal .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.modal .acts { flex: none; display: flex; gap: 8px; justify-content: flex-end; margin-top: 0; padding-top: 12px; border-top: 1px solid var(--line); }
 .modal .acts button { border-radius: 8px; padding: 12px 18px; min-height: 48px; border: 1px solid var(--line); background: var(--card); }
 .modal .acts .go { background: var(--acc); border-color: var(--acc); color: var(--on-acc); font-weight: 600; }
 .modal .acts .go.danger { background: var(--bad); border-color: var(--bad); color: #fff; }

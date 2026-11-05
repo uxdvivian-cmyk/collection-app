@@ -154,7 +154,7 @@ export default function SettingsPage() {
       <label className="lbl">試算表網址（需設為「知道連結的人可檢視」）
         <input type="search" value={sheetUrl} placeholder="https://docs.google.com/spreadsheets/d/…" onChange={(e) => { setSheetUrl(e.target.value); setPref(PREF_SHEET_URL, e.target.value.trim()) }} />
       </label>
-      <label className="lbl">Google Sheets API 金鑰（只存在這支手機）
+      <label className="lbl">Google API 金鑰（讀朋友的試算表、掃 ISBN 查書；只存在這支手機）
         <input type="search" value={apiKey} placeholder="AIza…" autoComplete="off" onChange={(e) => { setApiKey(e.target.value); setPref(PREF_API_KEY, e.target.value.trim()) }} />
       </label>
       <p className="hint">填好後，到「書」按「匯入」，選「從 Google 試算表同步」。金鑰建立步驟見專案的 docs/google-sheets-setup.md。</p>

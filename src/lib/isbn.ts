@@ -1,5 +1,7 @@
 // ISBN 處理與書籍資料查詢（openBD、Google Books、Open Library，都是免費、免金鑰、允許瀏覽器直接呼叫）。
 
+import { PREF_API_KEY, getPref } from './prefs'
+
 export interface BookInfo {
   isbn: string
   title: string
@@ -35,18 +37,33 @@ export function normalizeIsbn(input: string): string | null {
   return null
 }
 
+// 查詢過程中遇到的問題（例如 Google Books 免金鑰額度用完），查不到書時用來告訴使用者原因
+let issues = new Set<'google-quota' | 'google-key'>()
+
 async function getJson(url: string): Promise<any> {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 8000)
   try {
     const res = await fetch(url, { signal: ctl.signal })
-    if (!res.ok) return null
+    if (!res.ok) {
+      if (url.includes('googleapis.com/books')) {
+        if (res.status === 429) issues.add('google-quota')
+        else if (res.status === 403 || res.status === 400) issues.add('google-key')
+      }
+      return null
+    }
     return await res.json()
   } catch {
     return null
   } finally {
     clearTimeout(timer)
   }
+}
+
+/** Google Books：免金鑰的每日額度是所有人共用的，常常用完；有金鑰就用自己專案的額度（每天 1,000 次，免費） */
+function booksUrl(q: string, max: number): string {
+  const key = getPref(PREF_API_KEY)
+  return `https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=${max}${key ? `&key=${encodeURIComponent(key)}` : ''}`
 }
 
 async function fromOpenBD(isbn: string): Promise<BookInfo | null> {
@@ -64,7 +81,7 @@ async function fromOpenBD(isbn: string): Promise<BookInfo | null> {
 }
 
 async function fromGoogleBooks(isbn: string): Promise<BookInfo | null> {
-  const j = await getJson(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`)
+  const j = await getJson(booksUrl(`isbn:${isbn}`, 1))
   const v = j?.items?.[0]?.volumeInfo
   if (!v?.title) return null
   const lang = v.language === 'ja' ? 'ja' : v.language === 'en' ? 'en' : 'zh'
@@ -87,7 +104,7 @@ async function fromOpenLibrary(isbn: string): Promise<BookInfo | null> {
 
 async function fromGoogleBooksLoose(isbn: string): Promise<BookInfo | null> {
   // 有些書用 isbn: 查不到，直接用數字搜尋再挑出 ISBN 吻合的那筆
-  const j = await getJson(`https://www.googleapis.com/books/v1/volumes?q=${isbn}&maxResults=5`)
+  const j = await getJson(booksUrl(isbn, 5))
   const item = j?.items?.find((it: any) => it?.volumeInfo?.industryIdentifiers?.some((x: { identifier: string }) => x.identifier === isbn)) // eslint-disable-line @typescript-eslint/no-explicit-any
   const v = item?.volumeInfo
   if (!v?.title) return null
@@ -106,13 +123,16 @@ async function fromOpenLibrarySearch(isbn: string): Promise<BookInfo | null> {
 }
 
 /** 依 ISBN 查書籍資料。日本書（978-4）先查 openBD，其餘先查 Google Books。查不到回傳 null。 */
-export async function lookupIsbn(isbn: string): Promise<BookInfo | null> {
+export interface LookupResult { info: BookInfo | null; issues: ('google-quota' | 'google-key')[] }
+
+export async function lookupIsbn(isbn: string): Promise<LookupResult> {
+  issues = new Set()
   const order = isbn.startsWith('9784')
     ? [fromOpenBD, fromGoogleBooks, fromGoogleBooksLoose, fromOpenLibrary, fromOpenLibrarySearch]
     : [fromGoogleBooks, fromGoogleBooksLoose, fromOpenLibrary, fromOpenLibrarySearch, fromOpenBD]
   for (const f of order) {
     const info = await f(isbn)
-    if (info) return info
+    if (info) return { info, issues: [...issues] }
   }
-  return null
+  return { info: null, issues: [...issues] }
 }

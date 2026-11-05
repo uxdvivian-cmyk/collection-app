@@ -20,7 +20,7 @@ export default function Modal({ title, onClose, children, actions, wide }: Props
     <div className="ov" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={wide ? 'modal wide' : 'modal'} role="dialog" aria-modal="true" aria-label={title}>
         <h3>{title}</h3>
-        {children}
+        <div className="modal-body">{children}</div>
         <div className="acts">{actions}</div>
       </div>
     </div>

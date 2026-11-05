@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Book } from '../types'
 import { findDuplicates, type DupHit } from '../lib/duplicates'
 import { parseTitle } from '../lib/friendExcel'
-import { lookupIsbn, normalizeIsbn, type BookInfo } from '../lib/isbn'
+import { lookupIsbn, normalizeIsbn, type BookInfo, type LookupResult } from '../lib/isbn'
 import DupList from './DupList'
 import Modal from './Modal'
 
@@ -15,7 +16,7 @@ interface Props {
 type Phase =
   | { name: 'scan' }
   | { name: 'looking'; isbn: string }
-  | { name: 'result'; isbn: string; info: BookInfo | null; hits: DupHit[] }
+  | { name: 'result'; isbn: string; info: BookInfo | null; hits: DupHit[]; issues: LookupResult['issues'] }
 
 function prefillFrom(isbn: string, info: BookInfo | null): Partial<Book> {
   const parsed = info ? parseTitle(info.title) : {}
@@ -42,7 +43,7 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
     }
     setManualError('')
     setPhase({ name: 'looking', isbn })
-    const info = await lookupIsbn(isbn)
+    const { info, issues } = await lookupIsbn(isbn)
     const parsed = info ? parseTitle(info.title) : {}
     const hits = findDuplicates(
       { isbn, title: info?.title ?? '', series: info?.series ?? parsed.series, volume: info?.volume ?? parsed.volume },
@@ -53,7 +54,7 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
       onAdd(prefillFrom(isbn, info))
       return true
     }
-    setPhase({ name: 'result', isbn, info, hits })
+    setPhase({ name: 'result', isbn, info, hits, issues })
     return true
   }
 
@@ -121,7 +122,7 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
     )
     actions = <button onClick={onClose}>取消</button>
   } else {
-    const { info, hits, isbn } = phase
+    const { info, hits, isbn, issues } = phase
     body = (
       <>
         <div className="item">
@@ -133,7 +134,13 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
           </div>
           {!info && (
             <div className="zh">
-              免費的書籍資料庫沒有收錄這個版本。可以先用下面的連結查書名，再按「新增這本」自己輸入。
+              {issues.includes('google-quota')
+                ? 'Google Books 的免金鑰額度已被用完，所以查不到。請到設定填入 API 金鑰（並在 Google Cloud 啟用 Books API），之後就能查。'
+                : issues.includes('google-key')
+                  ? '你的 API 金鑰不能用在 Google Books。請到 Google Cloud 啟用 Books API，並在金鑰的「API 限制」勾選 Books API。'
+                  : '免費的書籍資料庫沒有收錄這個版本。'}
+              {issues.length > 0 && <> <Link to="/settings" onClick={onClose}>前往設定</Link></>}
+              <br />可以先用下面的連結查書名，再按「新增這本」自己輸入。
               <br />
               <a href={`https://search.books.com.tw/search/query/key/${isbn}/cat/all`} target="_blank" rel="noreferrer">博客來</a>
               {' · '}
