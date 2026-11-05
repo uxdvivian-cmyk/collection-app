@@ -38,7 +38,7 @@ export function guessCategory(name: string): string {
     [/チェキ|拍立得/, '拍立得'],
     [/クリアカード|透明卡|透卡/, '透卡'],
     [/ポストカード|明信片/, '明信片'],
-    [/アクリルスタンド|アクスタ|スタンドポップ|立牌|壓克力牌|アクリルキーホルダー|壓克力/, '壓克力牌'],
+    [/アクリルスタンド|アクスタ|スタンドポップ|立牌|壓克力牌|アクリルキーホルダー|アクリルプレート|アクリルパネル|アクキー|壓克力/, '壓克力牌'],
     [/ブロマイド|トレカ|カード|小卡|寫真/, '小卡'],
     [/缶バッジ|缶バッチ|バッジ|徽章|吧唧|別針/, '徽章'],
     [/色紙/, '色紙'],
@@ -306,10 +306,47 @@ function parseGeneric(raw: string, today: string): ParsedOrder | null {
   return { source: '其他', orderNo, date: today, currency: jpy ? 'JPY' : 'TWD', domesticShipping: shipping, items }
 }
 
+// ── 「【商品名】／【単価】／【数量】」分行標籤格式（マンガ展ストア等日本店家）──
+// 品名、單價、數量各佔一行，所以通用解析（要求同一行有價格）抓不到。標籤名稱放寬，其他用這種格式的店家也能用。
+function parseLabeled(raw: string, today: string): ParsedOrder | null {
+  const text = raw.normalize('NFKC')
+  const lines = text.split(/\r?\n/).map((l) => l.trim())
+  const lab = (l: string, re: RegExp) => l.match(new RegExp(`^【\\s*(?:${re.source})\\s*】\\s*(.*)$`))
+  const NAME = /商品名|品名|商品名稱/, PRICE = /単価|単\s*価|單價|価格|價格/, QTY = /数量|數量/
+  const items: ParsedItem[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const nm = lab(lines[i], NAME)
+    if (!nm) continue
+    let price: number | undefined, qty = 1
+    for (let j = i + 1; j < Math.min(lines.length, i + 6); j++) {
+      if (lab(lines[j], NAME)) break
+      const pm = lab(lines[j], PRICE)
+      if (pm) price = num(pm[1].replace(/[^\d,]/g, '') || '0')
+      const qm = lab(lines[j], QTY)
+      if (qm) qty = Number(qm[1].match(/\d+/)?.[0] ?? 1) || 1
+    }
+    if (price === undefined) continue
+    let name = nm[1].trim()
+    const notes: string[] = []
+    // 開頭的 [申込期間：…] 之類方括號是活動說明，放備註
+    name = name.replace(/^((?:\[[^\]]*\]\s*)+)/, (g) => { for (const t of g.matchAll(/\[([^\]]*)\]/g)) notes.push(t[1]); return '' }).trim()
+    const category = guessCategory(name)
+    items.push({
+      kind: category === '其他' ? 'book' : 'goods', name, category: category === '其他' ? 'BL' : category,
+      quantity: qty, unitPrice: price, preorder: false, note: notes.length ? notes.join('、') : undefined, tags: [],
+    })
+  }
+  if (!items.length) return null
+  const orderNo = text.match(/【\s*(?:注文番号|受注番号|訂單編號)\s*】\s*([A-Za-z0-9-]+)/)?.[1]
+  const ship = num(text.match(/【\s*送料\s*】\s*([\d,]+)/)?.[1] ?? '0')
+  const store = text.match(/([^\s、。,，]{2,12}?)(?:ストア|STORE|Store)に(?:ご)?注文/)
+  return { source: store ? store[1] + 'ストア' : '其他', orderNo, date: today, currency: 'JPY', domesticShipping: ship, items }
+}
+
 /** 先試各店家的專屬格式；全部都認不出來才用通用解析 */
 export function parseOrders(text: string, now = new Date()): ParsedOrder[] {
   const today = ymd(now)
-  const known = [parseRuten(text, today), parseBooth(text, today), parseAnimate(text, today), parseDuku(text, today), parseComicomi(text, today)].filter((o): o is ParsedOrder => !!o)
+  const known = [parseRuten(text, today), parseBooth(text, today), parseAnimate(text, today), parseDuku(text, today), parseComicomi(text, today), parseLabeled(text, today)].filter((o): o is ParsedOrder => !!o)
   if (known.length) return known
   const g = parseGeneric(text, today)
   return g ? [g] : []
