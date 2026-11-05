@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import type { Book, BookGenre } from '../types'
+import { volumeLabel } from '../lib/series'
 import { GENRES, GENRE_LABEL } from '../lib/labels'
 import { totalCost, twd } from '../lib/money'
 import { useBookActions } from '../lib/bookActions'
@@ -9,19 +10,6 @@ import BookCard from '../components/BookCard'
 import ImportExcel from '../components/ImportExcel'
 
 type GenreFilter = 'all' | BookGenre
-
-function seriesInfo(name: string, all: Book[]): string {
-  const owned = all.filter((b) => b.series === name && b.status !== 'sold')
-  const total = Math.max(0, ...all.filter((b) => b.series === name).map((b) => b.seriesTotal ?? 0))
-  if (owned.length === 1 && !total) return ''
-  let s = `已入 ${owned.length}${total ? ` / ${total}` : ''} 卷`
-  if (total) {
-    const have = new Set(owned.map((b) => b.volume))
-    const miss = Array.from({ length: total }, (_, i) => i + 1).filter((n) => !have.has(n))
-    if (miss.length) s += ` · 缺 ${miss.join('、')}`
-  }
-  return s
-}
 
 export default function BooksPage() {
   const books = useLiveQuery(() => db.books.toArray(), [])
@@ -47,12 +35,15 @@ export default function BooksPage() {
   const total = list.reduce((s, b) => s + totalCost(b), 0)
   const pre = list.filter((b) => b.preorder).reduce((s, b) => s + totalCost(b), 0)
 
+  // 一個系列有 2 本以上才分組顯示；單本與只有一本的系列直接列出完整書名
+  const seriesSize = new Map<string, number>()
+  for (const b of books) if (b.series && b.status !== 'sold') seriesSize.set(b.series, (seriesSize.get(b.series) ?? 0) + 1)
   const groups = new Map<string, Book[]>()
+  const singles: Book[] = []
   for (const b of list) {
-    const k = b.series || ''
-    groups.set(k, [...(groups.get(k) ?? []), b])
+    if (b.series && (seriesSize.get(b.series) ?? 0) >= 2) groups.set(b.series, [...(groups.get(b.series) ?? []), b])
+    else singles.push(b)
   }
-  const order = [...groups.keys()].sort((a, b) => (a === '' ? 1 : 0) - (b === '' ? 1 : 0))
 
   return (
     <section>
@@ -85,17 +76,16 @@ export default function BooksPage() {
         </div>
       )}
 
-      {order.map((k) => (
-        <div className="sg" key={k || '_single'}>
-          <div className="ghead">
-            <span className="gname">{k || '單本（沒有系列）'}</span>
-            {k && seriesInfo(k, books) && <span className="zh">{seriesInfo(k, books)}</span>}
-          </div>
-          {groups.get(k)!
-            .sort((a, b) => (a.volume ?? 0) - (b.volume ?? 0))
-            .map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} />)}
+      {[...groups.entries()].map(([name, items]) => (
+        <div className="sg" key={name}>
+          <div className="ghead"><span className="gname">{name}</span></div>
+          {items
+            .sort((x, y) => (x.volume ?? 0) - (y.volume ?? 0))
+            .map((b) => <BookCard key={b.id} book={b} label={volumeLabel(b)} actions={actionsFor(b)} />)}
         </div>
       ))}
+      {singles.length > 0 && groups.size > 0 && <div className="ghead"><span className="gname">其他</span></div>}
+      {singles.map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} />)}
       {modal}
       {importing && <ImportExcel onClose={() => setImporting(false)} />}
     </section>

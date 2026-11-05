@@ -66,7 +66,6 @@ export interface Book extends Base {
   publisher?: string
   series?: string
   volume?: number
-  seriesTotal?: number // 系列總卷數（選填），用來顯示缺哪幾卷
   acquiredDate?: string // 收到日（朋友的 Excel：分頁名稱的寄出日）
   importKey?: string // 匯入時的識別碼，避免重複匯入
   language?: 'zh' | 'ja' | 'en'

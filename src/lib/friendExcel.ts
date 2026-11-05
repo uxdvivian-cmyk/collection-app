@@ -22,7 +22,6 @@ export interface ParsedRow {
   note?: string
   series?: string
   volume?: number
-  seriesTotal?: number
   listPrice?: number
   acquiredDate?: string
   preorder: boolean
@@ -55,12 +54,12 @@ export function discountFromNote(note?: string): number | undefined {
 }
 
 /** 從書名拆出系列與卷數。拆不出來就當單本。 */
-export function parseTitle(title: string): { series?: string; volume?: number; seriesTotal?: number } {
+export function parseTitle(title: string): { series?: string; volume?: number } {
   const t = title
   if (/[+＋]/.test(t) || /同捆/.test(t)) return {} // 合輯、同捆：當單本
   if (/(?:^|[\s\-－(（])全[)）]?$/.test(t)) return {} // 「全」：一本完結
   let m = t.match(/^(.+?)\s*[(（]?\s*([上下])\s*[)）]?$/)
-  if (m && /[\s(（]/.test(t.slice(m[1].length))) return { series: m[1].trim(), volume: m[2] === '上' ? 1 : 2, seriesTotal: 2 }
+  if (m && /[\s(（]/.test(t.slice(m[1].length))) return { series: m[1].trim(), volume: m[2] === '上' ? 1 : 2 }
   m = t.match(/^(.+?)\s*[(（]\s*(\d{1,3})\s*[)）]\s*([^\d]*)$/) // 蜜果(05) 特別版、為了…英雄 (1)
   if (m) return { series: m[1].trim(), volume: Number(m[2]) }
   m = t.match(/^(.+?)\s+(\d{1,3})\s*([^\d\s][^\d]*)?$/) // 讓我討厭你 4、異世界社畜 4限定版
@@ -123,7 +122,7 @@ export function parseWorkbook(sheets: { sheet: string; data: readonly (readonly 
 export function toBook(r: ParsedRow, condition: Condition): Omit<Book, 'id'> {
   return {
     title: r.title, genre: 'BL', condition, bookSource: 'friend',
-    series: r.series, volume: r.volume, seriesTotal: r.seriesTotal,
+    series: r.series, volume: r.volume,
     tags: [], zhKeywords: [],
     collection: 'general', status: 'owned', quantity: r.quantity,
     currency: 'TWD', unitPrice: r.price !== undefined ? r.price / r.quantity : 0,

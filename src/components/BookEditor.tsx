@@ -20,7 +20,6 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
   const [source, setSource] = useState<BookSource>(book?.bookSource ?? 'online')
   const [series, setSeries] = useState(book?.series ?? '')
   const [volume, setVolume] = useState(book?.volume?.toString() ?? '')
-  const [seriesTotal, setSeriesTotal] = useState(book?.seriesTotal?.toString() ?? '')
   const [tags, setTags] = useState<string[]>(book?.tags ?? [])
   const [currency, setCurrency] = useState<Currency>(book?.currency ?? 'TWD')
   const [price, setPrice] = useState(book?.unitPrice?.toString() ?? '')
@@ -48,7 +47,6 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
       title: t, genre, condition, bookSource: source,
       series: series.trim() || undefined,
       volume: num(volume),
-      seriesTotal: num(seriesTotal),
       tags, currency, unitPrice: p,
       listPrice: lp, listPriceEstimated: lp !== undefined ? estimated : undefined,
       preorder: preorder || undefined,
@@ -99,10 +97,7 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
       </div>
 
       <label>系列名稱（單本留空）<input type="search" value={series} onChange={(e) => setSeries(e.target.value)} /></label>
-      <div className="two">
-        <label>第幾卷<input type="number" inputMode="numeric" value={volume} onChange={(e) => setVolume(e.target.value)} /></label>
-        <label>系列總卷數（選填）<input type="number" inputMode="numeric" value={seriesTotal} onChange={(e) => setSeriesTotal(e.target.value)} /></label>
-      </div>
+      <label>第幾卷（選填）<input type="number" inputMode="numeric" value={volume} onChange={(e) => setVolume(e.target.value)} /></label>
 
       <div className="lbl">Tag
         <TagPicker tags={tags} pool={tagPool} onChange={setTags} />
