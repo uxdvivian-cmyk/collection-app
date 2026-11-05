@@ -38,7 +38,7 @@ export function guessCategory(name: string): string {
     [/チェキ|拍立得/, '拍立得'],
     [/クリアカード|透明卡|透卡/, '透卡'],
     [/ポストカード|明信片/, '明信片'],
-    [/アクリルスタンド|アクスタ|スタンドポップ|立牌|壓克力牌|アクリルキーホルダー|アクリルプレート|アクリルパネル|アクキー|壓克力/, '壓克力牌'],
+    [/アクリルスタンド|アクスタ|スタンドポップ|立牌|壓克力牌|アクリルキーホルダー|アクリルキーリング|キーリング|アクリルプレート|アクリルパネル|アクキー|壓克力/, '壓克力牌'],
     [/ブロマイド|トレカ|カード|小卡|寫真/, '小卡'],
     [/缶バッジ|缶バッチ|バッジ|徽章|吧唧|別針/, '徽章'],
     [/色紙/, '色紙'],
@@ -140,7 +140,7 @@ function parseBooth(text: string, today: string): ParsedOrder | null {
 
 // ── Animate（日本安利美特）──
 function parseAnimate(text: string, today: string): ParsedOrder | null {
-  if (!/商品名\s*[:：]/.test(text)) return null
+  if (!/商品名\s*[:：]/.test(text) || !/アニメイト|animate|●ご注文内容|●合計/i.test(text)) return null
   const orderNo = text.match(/ご注文番号\s*\n\s*(\d+)/)?.[1]
   const start = text.search(/●ご注文内容|商品名\s*[:：]/)
   const body = text.slice(start)
@@ -266,44 +266,99 @@ function parseComicomi(raw: string, today: string): ParsedOrder | null {
 
 /** 貼上的文字可能包含多筆訂單、來自不同店家；各自解析，依序回傳。 */
 // ── 通用解析（沒有專屬格式的新平台、代購都走這裡）──
-// 不認店家，只看每一行：有價格（¥／円／NT$／元）的就當成一個品項，數量認 x2／×2／2個／2點。
-// 解析結果一律讓你在畫面上確認、改名、改數量、改幣別，所以寧可多抓，不要漏。
-const SKIP_LINE = /送料|運費|运费|郵資|配送|手数料|手續費|消費税|税|合計|合计|小計|小计|総額|總計|總額|total|subtotal|shipping|ポイント|點數|折扣|割引|クーポン|coupon|お支払|付款|代金|電話|住所|〒|@/i
+// 不認店家，認「結構」，三種寫法都吃：
+//   ① 同一行：品名 ＋ 價格 ＋ 數量（¥1,200 x 2、2,500円 × 1）
+//   ② 品名一行、價格（與數量）在後面 1～3 行：
+//        「1.品名」「商品名：品名」「【商品名】品名」 → 「価格：440円 x 数量：5」「販売価格：787円 5個」「【単価】440円」「【数量】2個」
+//   ③ 價格與數量分在兩行
+// 運費（送料／運費）取最大值；合計、稅、手續費、點數、折扣、個資行一律略過。
+// 解析結果都會讓你在畫面上確認、改名、改數量、改幣別，所以寧可多抓，不要漏。
+const SKIP_LINE = /送料|運費|运费|郵資|配送|手数料|手續費|消費税|税|合計|合计|小計|小计|総額|總計|總額|total|subtotal|shipping|ポイント|點數|折扣|割引|値引|クーポン|coupon|お支払|付款|代金|電話|住所|〒|@|決済|番号|URL|http/i
+const G_PRICE = /(?:¥|NT\$|\$|TWD|JPY)\s*([\d,]+)|([\d,]+)\s*(?:\(?円\)?|元|JPY|TWD|yen)/i
+const G_QTY = /(?:[x×*]\s*(\d{1,3})(?![\d]))|(?:(\d{1,3})\s*(?:個|点|點|pcs|件|入|冊|本|セット)(?![A-Za-z]))|(?:[數数]\s*量\s*[:：]?\s*(\d{1,3}))/i
+const G_LABEL = /(?:商品名稱|商品名|品名|販売価格|単\s*価|單價|価格|價格|金額|[數数]\s*量|アイテムコード)\s*[:：】\]]?/g
+
+const STORES: [RegExp, string][] = [
+  [/ムービック|movic/i, 'Movic'], [/カドスト|KADOKAWA|角川/i, '角川カドスト'], [/とらのあな|toranoana/i, '虎之穴'], [/メロンブックス|melonbooks/i, 'メロンブックス'],
+  [/駿河屋/, '駿河屋'], [/ゲーマーズ|gamers/i, 'ゲーマーズ'], [/ステラワース|stellaworth/i, 'ステラワース'],
+  [/Amazon|アマゾン/i, 'Amazon'], [/楽天|rakuten/i, '樂天'], [/メルカリ|mercari/i, 'メルカリ'], [/ヨドバシ/, 'ヨドバシ'],
+  [/ホビーサーチ/, 'ホビーサーチ'], [/アニプレックス|aniplex/i, 'Aniplex'],
+]
+function detectStore(text: string): string {
+  for (const [re, name] of STORES) if (re.test(text)) return name
+  const m = text.match(/([^\s、。,，「」【】]{2,12}?)(?:ストア|STORE|Store)に(?:ご)?注文/)
+  return m ? m[1] + 'ストア' : '其他'
+}
+function detectOrderNo(text: string): string | undefined {
+  return text.match(/(?:オーダーID|注文コード|注文番号|受注番号|出荷番号|訂單編號|订单编号|order\s*(?:no|number|id|#)?)\s*[】\]:：#]*\s*([A-Za-z0-9][A-Za-z0-9-]{5,})/i)?.[1]
+}
+function detectDate(text: string, today: string): string {
+  const m = text.match(/(?:ご?注文日|注文日時|訂單日期|order\s*date|日時)[^\d]{0,6}(\d{4})[年/.\-](\d{1,2})[月/.\-](\d{1,2})/i)
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : today
+}
 
 function parseGeneric(raw: string, today: string): ParsedOrder | null {
-  const text = raw.normalize('NFKC')
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  // 全形轉半形方便比對，但品名裡常見的 ①②、＜＞、／、！、～ 保留原樣
+  const text = Array.from(raw).map((c) => (/[①-⑳＜＞／！？～〜]/.test(c) ? c : c.normalize('NFKC'))).join('')
+  const lines = text.split(/\r?\n/).map((l) => l.trim().replace(/^[・●■□•]\s*/, ''))
   const jpy = /円|¥|JPY|yen/i.test(text) && !/NT\$|NTD|TWD|新台幣/i.test(text)
-  const PRICE = /(?:¥|NT\$|\$|TWD|JPY)\s*([\d,]+)|([\d,]+)\s*(?:\(?円\)?|元|JPY|TWD|yen)/i
-  const QTY = /(?:[x×*]\s*(\d{1,3})\b)|(?:(\d{1,3})\s*(?:個|点|點|pcs|件|入|冊|本|セット)\b)|(?:數量[:：\s]*(\d{1,3}))|(?:数量[:：\s]*(\d{1,3}))/i
   let shipping = 0
   const items: ParsedItem[] = []
-  for (const l of lines) {
-    if (/送料|運費|运费|郵資|shipping/i.test(l) && !/割引|免運|無料|free/i.test(l)) {
-      const m = l.match(PRICE) ?? l.match(/([\d,]{2,})/)
-      if (m) shipping = Math.max(shipping, num((m[1] ?? m[2] ?? '0')))
+  let pending: { name: string; at: number } | null = null
+
+  const cleanName = (n: string) =>
+    n.replace(G_LABEL, ' ').replace(/[=＝].*$/, '').replace(/^\s*\d{1,2}\s*[.)．、]\s*/, '').replace(/[()（）\s:：|｜,，]+$/g, '').replace(/\s+/g, ' ').trim()
+  const push = (name0: string, price: number, qty: number, ctx: string) => {
+    let name = name0
+    if (name.length < 2 || !/[\p{L}]/u.test(name) || !price) return
+    const pre = /[＜<【\[(（]\s*(?:予約|予约|預購|預售|預訂)\s*[＞>】\])）]/
+    const isPre = pre.test(name) || /予約|予约|預購|預售|預訂/.test(ctx)
+    name = name.replace(new RegExp(pre.source, 'g'), '').replace(/\s+/g, ' ').trim()
+    const category = guessCategory(name)
+    items.push({ kind: 'goods', name, category, quantity: qty, unitPrice: price, preorder: isPre, tags: [] })
+  }
+  const qtyOf = (l: string) => {
+    const q = l.match(G_QTY)
+    return Number(q?.[1] ?? q?.[2] ?? q?.[3] ?? 0) || 0
+  }
+  const nameOnly = (l: string): string | null => {
+    // 「商品名：X」「N.X」這類只有品名的行
+    const lab = l.match(/^(?:【\s*)?(?:商品名稱|商品名|品名)\s*[】:：]?\s*(.+)$/)
+    if (lab) return lab[1].trim()
+    const num = l.match(/^\d{1,2}\s*[.)．]\s*(.{2,})$/)
+    return num ? num[1].trim() : null
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]
+    if (!l) continue
+    if (/送料|運費|运费|郵資|shipping/i.test(l.replace(/[=＝].*$/, '')) && !/割引|免運|無料|free/i.test(l)) {
+      const m = l.match(G_PRICE) ?? l.match(/[:：]\s*([\d,]+)/)
+      if (m) shipping = Math.max(shipping, num(m[1] ?? m[2] ?? '0'))
       continue
     }
-    if (SKIP_LINE.test(l)) continue
-    const pm = l.match(PRICE)
+    if (SKIP_LINE.test(l.replace(/[=＝].*$/, '')) && !nameOnly(l)) continue
+    const pm = l.match(G_PRICE)
+    const nm = nameOnly(l)
+    if (nm && !pm) { pending = { name: cleanName(nm), at: i }; continue }
     if (!pm) continue
     const price = num(pm[1] ?? pm[2])
-    if (!price) continue
-    const qm = l.match(QTY)
-    const qty = Number(qm?.[1] ?? qm?.[2] ?? qm?.[3] ?? qm?.[4] ?? 1) || 1
-    // 行內有「單價 x 數量 = 小計」時，PRICE 抓到的是第一個（單價）
-    let name = l.replace(/[=＝].*$/, '').replace(new RegExp(PRICE.source, 'ig'), ' ').replace(new RegExp(QTY.source, 'ig'), ' ')
-    name = name.replace(/[()（）\s:：|｜,，]+$/g, '').replace(/^[\s・\-*•●■□\d]+[.)、]?\s+(?=\S)/, '').replace(/\s+/g, ' ').trim()
-    if (name.length < 2 || !/[\p{L}]/u.test(name)) continue
-    const category = guessCategory(name)
-    items.push({
-      kind: category === '其他' ? 'goods' : 'goods', name, category, quantity: qty, unitPrice: price,
-      preorder: /予約|予约|預購|預售|預訂/.test(l), tags: [],
-    })
+    let qty = qtyOf(l)
+    const inline = cleanName(nm ?? l.replace(new RegExp(G_PRICE.source, 'ig'), ' ').replace(new RegExp(G_QTY.source, 'ig'), ' '))
+    if (inline.length >= 2 && /[\p{L}]/u.test(inline) && !/^(?:価格|金額)$/.test(inline)) {
+      push(inline, price, qty || 1, l); pending = null; continue
+    }
+    // 價格行：品名在前面
+    if (pending && i - pending.at <= 4) {
+      if (!qty) for (let k = i + 1; k <= i + 2 && k < lines.length; k++) { if (nameOnly(lines[k])) break; if (G_PRICE.test(lines[k])) break; qty = qtyOf(lines[k]); if (qty) break }
+      push(pending.name, price, qty || 1, pending.name + l); pending = null
+    }
   }
   if (!items.length) return null
-  const orderNo = text.match(/(?:注文番号|訂單編號|订单编号|order\s*(?:no|number|#)?)[\s:：#]*([A-Za-z0-9-]{6,})/i)?.[1]
-  return { source: '其他', orderNo, date: today, currency: jpy ? 'JPY' : 'TWD', domesticShipping: shipping, items }
+  const source = detectStore(text)
+  // 虎之穴、Melonbooks 這類書店：認不出類別的品項預設當書（畫面上可切換成周邊）
+  if (/虎之穴|メロンブックス/.test(source)) for (const it of items) if (it.category === '其他') { it.kind = 'book'; it.category = 'BL' }
+  return { source, orderNo: detectOrderNo(text), date: detectDate(text, today), currency: jpy ? 'JPY' : 'TWD', domesticShipping: shipping, items }
 }
 
 // ── 「【商品名】／【単価】／【数量】」分行標籤格式（マンガ展ストア等日本店家）──
@@ -337,7 +392,7 @@ function parseLabeled(raw: string, today: string): ParsedOrder | null {
     })
   }
   if (!items.length) return null
-  const orderNo = text.match(/【\s*(?:注文番号|受注番号|訂單編號)\s*】\s*([A-Za-z0-9-]+)/)?.[1]
+  const orderNo = detectOrderNo(text)
   const ship = num(text.match(/【\s*送料\s*】\s*([\d,]+)/)?.[1] ?? '0')
   const store = text.match(/([^\s、。,，]{2,12}?)(?:ストア|STORE|Store)に(?:ご)?注文/)
   return { source: store ? store[1] + 'ストア' : '其他', orderNo, date: today, currency: 'JPY', domesticShipping: ship, items }
