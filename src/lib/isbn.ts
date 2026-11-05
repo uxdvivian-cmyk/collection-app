@@ -38,7 +38,8 @@ export function normalizeIsbn(input: string): string | null {
 }
 
 // 查詢過程中遇到的問題（例如 Google Books 免金鑰額度用完），查不到書時用來告訴使用者原因
-let issues = new Set<'google-quota' | 'google-key'>()
+export type LookupIssue = 'google-quota' | 'google-quota-key' | 'google-key'
+let issues = new Set<LookupIssue>()
 
 async function getJson(url: string): Promise<any> {
   const ctl = new AbortController()
@@ -47,7 +48,7 @@ async function getJson(url: string): Promise<any> {
     const res = await fetch(url, { signal: ctl.signal })
     if (!res.ok) {
       if (url.includes('googleapis.com/books')) {
-        if (res.status === 429) issues.add('google-quota')
+        if (res.status === 429) issues.add(url.includes('&key=') ? 'google-quota-key' : 'google-quota')
         else if (res.status === 403 || res.status === 400) issues.add('google-key')
       }
       return null
@@ -123,7 +124,7 @@ async function fromOpenLibrarySearch(isbn: string): Promise<BookInfo | null> {
 }
 
 /** 依 ISBN 查書籍資料。日本書（978-4）先查 openBD，其餘先查 Google Books。查不到回傳 null。 */
-export interface LookupResult { info: BookInfo | null; issues: ('google-quota' | 'google-key')[] }
+export interface LookupResult { info: BookInfo | null; issues: LookupIssue[] }
 
 export async function lookupIsbn(isbn: string): Promise<LookupResult> {
   issues = new Set()

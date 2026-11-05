@@ -135,7 +135,9 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
           {!info && (
             <div className="zh">
               {issues.includes('google-quota')
-                ? 'Google Books 的免金鑰額度已被用完，所以查不到。請到設定填入 API 金鑰（並在 Google Cloud 啟用 Books API），之後就能查。'
+                ? '這支裝置上沒有偵測到 API 金鑰，所以用的是 Google Books 全世界共用的免金鑰額度（已用完）。金鑰只存在各裝置自己的瀏覽器，電腦填了手機不會有，請到這支裝置的設定填入。'
+                : issues.includes('google-quota-key')
+                ? '已經帶著你的金鑰查詢，但 Google 回報額度不足（429）。剛啟用 Books API 時可能還沒生效，請幾分鐘後再試；仍不行的話，到 Google Cloud 的 Books API →「Quotas」確認每日查詢額度。'
                 : issues.includes('google-key')
                   ? '你的 API 金鑰不能用在 Google Books。請到 Google Cloud 啟用 Books API，並在金鑰的「API 限制」勾選 Books API。'
                   : '免費的書籍資料庫沒有收錄這個版本。'}
