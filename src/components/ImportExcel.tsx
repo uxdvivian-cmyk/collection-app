@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import readXlsxFile from 'read-excel-file/browser'
 import { db } from '../db'
 import type { Book, Condition } from '../types'
@@ -156,7 +157,12 @@ export default function ImportExcel({ onClose }: { onClose: () => void }) {
           <button className="btn" disabled={phase.name === 'loading' || !canSync} onClick={onSync}>從 Google 試算表同步</button>
           <button className="btn ghost" disabled={phase.name === 'loading'} onClick={() => fileRef.current?.click()}>選擇 Excel 檔</button>
         </div>
-        {!canSync && <p className="hint">要用同步，請先到「設定」填入試算表網址與 API 金鑰。</p>}
+        {!canSync && (
+          <p className="hint">
+            還不能同步：「設定」裡還缺{!sheetUrl && '試算表網址'}{!sheetUrl && !apiKey && '、'}{!apiKey && 'API 金鑰'}。{' '}
+            <Link to="/settings" onClick={onClose}>前往設定</Link>
+          </p>
+        )}
         {phase.name === 'loading' && <p className="note">讀取中…</p>}
       </>
     )
