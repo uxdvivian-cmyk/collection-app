@@ -26,10 +26,10 @@ export interface SyncStatus { state: SyncState; message: string; lastAt: number;
 
 // ── 要同步的資料表 ──
 type Rec = { id?: number; uid?: string; updatedAt?: number; deleted?: boolean }
-const TABLES = ['books', 'goods', 'orders'] as const
+const TABLES = ['books', 'goods', 'orders', 'glossary'] as const
 type TableName = (typeof TABLES)[number]
 type Data = Record<TableName, Rec[]>
-const emptyData = (): Data => ({ books: [], goods: [], orders: [] })
+const emptyData = (): Data => ({ books: [], goods: [], orders: [], glossary: [] })
 const tableOf = (name: TableName) => db[name] as unknown as Table<Rec, number>
 const count = (d: Data) => TABLES.reduce((n, t) => n + d[t].length, 0)
 
@@ -85,7 +85,7 @@ async function download(token: string, id: string): Promise<Data | null> {
 
 async function upload(token: string, id: string | null, data: Data, name = FILE_NAME): Promise<string> {
   const strip = (rows: Rec[]) => rows.map(({ id: _i, ...r }) => r)
-  const body = JSON.stringify({ version: 2, savedAt: new Date().toISOString(), books: strip(data.books), goods: strip(data.goods), orders: strip(data.orders) })
+  const body = JSON.stringify({ version: 3, savedAt: new Date().toISOString(), ...Object.fromEntries(TABLES.map((t) => [t, strip(data[t])])) })
   if (id) {
     const res = await drive(token, `${UPLOAD}/files/${id}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body })
     if (!res.ok) throw new Error(`Google Drive 寫入失敗（${res.status}）`)

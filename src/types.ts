@@ -89,6 +89,9 @@ export interface Book extends Base {
 /** 中日對照詞庫：作品、角色 */
 export interface GlossaryEntry {
   id?: number
+  uid?: string
+  updatedAt?: number
+  deleted?: boolean
   kind: 'work' | 'character' | 'maker' | 'other'
   ja: string
   zh: string[]

@@ -4,6 +4,7 @@ import SalePage from './pages/SalePage'
 import SettingsPage from './pages/SettingsPage'
 import GoodsPage from './pages/GoodsPage'
 import PastePage from './pages/PastePage'
+import GlossaryPage from './pages/GlossaryPage'
 import Placeholder from './pages/Placeholder'
 
 const tabs = [
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/sale" element={<SalePage />} />
           <Route path="/paste" element={<PastePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/glossary" element={<GlossaryPage />} />
         </Routes>
       </main>
     </div>

@@ -137,8 +137,15 @@ a { color: var(--acc); }
 .draft { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
 .draft .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .draft label { display: grid; gap: 4px; font-size: 13px; color: var(--mut); }
+.tagbtn { background: transparent; color: var(--acc); border-color: var(--acc); cursor: pointer; font: inherit; font-size: 12px; min-height: 28px; padding: 1px 8px; }
 .catpick { display: grid; gap: 4px; justify-items: start; }
 .imp-main input[type='search'] { font-size: 15px; }
+
+/* 詞庫 */
+.glossadd { margin: 0 0 10px; }
+.glossadd summary { cursor: pointer; color: var(--acc); font-size: 13px; padding: 6px 0; }
+.danger-text { color: var(--bad); }
+a.btn { text-decoration: none; display: inline-grid; place-items: center; }
 
 /* 同系列的群組：一張卡片，沒有標題，每列是完整書名＋集數 */
 .sg-card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc); border-radius: 4px 10px 10px 4px; margin-bottom: 8px; overflow: visible; }

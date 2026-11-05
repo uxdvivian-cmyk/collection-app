@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, exportBackup, importBackup, liveBooks } from '../db'
 import { parseTitle } from '../lib/friendExcel'
@@ -158,6 +159,10 @@ export default function SettingsPage() {
         <input type="search" value={apiKey} placeholder="AIza…" autoComplete="off" onChange={(e) => { setApiKey(e.target.value); setPref(PREF_API_KEY, e.target.value.trim()) }} />
       </label>
       <p className="hint">填好後，到「書」按「匯入」，選「從 Google 試算表同步」。金鑰建立步驟見專案的 docs/google-sheets-setup.md。</p>
+
+      <h2>中日詞庫</h2>
+      <p className="zh">把日文的作品名、角色名對應到中文關鍵字，貼文字入庫時自動帶出，搜尋也找得到。</p>
+      <div className="row"><Link className="btn ghost" to="/glossary">管理詞庫</Link></div>
 
       <h2>書的系列</h2>
       <p className="zh">依書名裡的集數（例如「2」「(03)」「上」「-01」）判斷系列。已經有系列的書不會被改動。</p>

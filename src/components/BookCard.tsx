@@ -27,6 +27,7 @@ export default function BookCard({ book: b, actions, inSale }: Props) {
       <div className="top">
         <div className="l">
           <div className="name">{b.title}</div>
+          {b.zhKeywords.length > 0 && <div className="zh">{b.zhKeywords.join(' ')}</div>}
           {b.note && <div className="zh">{b.note}</div>}
           <div className="tags">
             <span className="tag">{GENRE_LABEL[b.genre]}</span>

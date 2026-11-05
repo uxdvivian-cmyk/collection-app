@@ -4,6 +4,7 @@ import type { Condition, Currency, Goods } from '../types'
 import { CONDITION_LABEL } from '../lib/labels'
 import { getRate } from '../lib/money'
 import CategoryPicker from './CategoryPicker'
+import GlossaryAdd from './GlossaryAdd'
 import Modal from './Modal'
 import TagPicker from './TagPicker'
 
@@ -70,6 +71,7 @@ export default function GoodsEditor({ goods, tagPool, onClose }: Props) {
     >
       <label>名稱<input type="search" value={name} onChange={(e) => setName(e.target.value)} /></label>
       <label>中文關鍵字（用空白分開，搜尋用）<input type="search" value={zh} onChange={(e) => setZh(e.target.value)} /></label>
+      <GlossaryAdd name={name} zh={zh} />
 
       <div className="lbl">類別
         <CategoryPicker value={category} onChange={setCategory} />

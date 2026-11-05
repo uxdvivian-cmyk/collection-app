@@ -17,7 +17,7 @@ export default function PastePage() {
     const orders = parseOrders(text)
     if (!orders.length) {
       setDrafts(null)
-      setMsg('認不出訂單格式。目前支援露天、BOOTH、Animate（日本安利美特）的訂單文字，請整段貼上。')
+      setMsg('認不出訂單格式。目前支援露天、BOOTH、Animate（日本安利美特）、讀冊、コミコミスタジオ的訂單文字，請整段貼上。')
       return
     }
     setMsg('')
@@ -43,7 +43,7 @@ export default function PastePage() {
     <section>
       <SyncBanner />
       <h1>貼文字入庫</h1>
-      <p className="zh">整段貼上露天、BOOTH、Animate 的訂單文字（個資不會被讀取）。買的是書會自動進「書」。</p>
+      <p className="zh">整段貼上露天、BOOTH、Animate、讀冊、コミコミスタジオ的訂單文字（個資不會被讀取）。買的是書會自動進「書」；品名裡有詞庫的日文詞，會自動帶出中文關鍵字。</p>
       <textarea value={text} onChange={(e) => setText(e.target.value)} aria-label="貼上訂單文字" placeholder="在這裡貼上訂單文字…" />
       <div className="row"><button className="btn" disabled={!text.trim()} onClick={parse}>解析</button></div>
       {msg && <p className="err" role="alert">{msg}</p>}
@@ -77,7 +77,10 @@ export default function PastePage() {
                     <div className="imp-main">
                       <input type="search" value={i.name} aria-label="名稱" onChange={(e) => patchItem(o.key, i.key, { name: e.target.value })} />
                       <div className="tags">
-                        <span className="tag">{i.kind === 'book' ? '書' : '周邊'}</span>
+                        {!i.deferred
+                          ? <button type="button" className="tag tagbtn" aria-label="切換周邊或書" onClick={() => patchItem(o.key, i.key, { kind: i.kind === 'book' ? 'goods' : 'book' })}>{i.kind === 'book' ? '書' : '周邊'} ⇄</button>
+                          : <span className="tag">周邊</span>}
+                        {i.condition === 'used' && <span className="tag used">二手</span>}
                         {i.preorder && <span className="tag pre">預購中{i.expectedMonth ? ' ' + i.expectedMonth : ''}</span>}
                         <span className="tag">{o.currency === 'JPY' ? '¥' + i.unitPrice.toLocaleString() : 'NT$ ' + i.unitPrice.toLocaleString()}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
                         {i.tags.map((t) => <span key={t} className="tag">#{t}</span>)}

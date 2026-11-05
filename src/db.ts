@@ -36,6 +36,15 @@ class CollectionDB extends Dexie {
         b.updatedAt ??= b.createdAt ?? Date.now()
       }),
     )
+    // v5：中日詞庫也能跨裝置同步
+    this.version(5).stores({
+      glossary: '++id, kind, ja, uid, updatedAt',
+    }).upgrade((tx) =>
+      tx.table('glossary').toCollection().modify((r: { uid?: string; updatedAt?: number }) => {
+        r.uid ??= newUid()
+        r.updatedAt ??= Date.now()
+      }),
+    )
     // v4：周邊、訂單也能跨裝置同步
     this.version(4).stores({
       goods: '++id, orderUid, collection, category, status, work, character, uid, updatedAt',
@@ -66,7 +75,7 @@ const notifyDirty = () => { if (!applyingSync) dirtyListeners.forEach((f) => f()
 export const db = new CollectionDB()
 
 // 書、周邊、訂單：建立時補 uid 與 updatedAt；修改時更新 updatedAt
-for (const table of [db.books, db.goods, db.orders] as Table<{ uid?: string; updatedAt?: number }, number>[]) {
+for (const table of [db.books, db.goods, db.orders, db.glossary] as Table<{ uid?: string; updatedAt?: number }, number>[]) {
   table.hook('creating', function (_pk, obj) {
     obj.uid ??= newUid()
     obj.updatedAt ??= Date.now()
@@ -82,6 +91,7 @@ for (const table of [db.books, db.goods, db.orders] as Table<{ uid?: string; upd
 /** 沒被刪除的書／周邊 */
 export const liveBooks = () => db.books.filter((b) => !b.deleted).toArray()
 export const liveGoods = () => db.goods.filter((g) => !g.deleted).toArray()
+export const liveGlossary = () => db.glossary.filter((e) => !e.deleted).toArray()
 
 export async function seedDefaults() {
   if ((await db.categories.count()) === 0) {

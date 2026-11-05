@@ -1,6 +1,7 @@
-import { db, liveBooks, liveGoods } from '../db'
+import { db, liveBooks, liveGlossary, liveGoods } from '../db'
 import type { Book, Goods } from '../types'
 import { parseTitle, normTitle } from './friendExcel'
+import { zhFor } from './glossary'
 import { getRate, toTWD } from './money'
 import type { ParsedItem, ParsedOrder } from './orderParser'
 
@@ -50,6 +51,7 @@ export async function makeDrafts(orders: ParsedOrder[]): Promise<DraftOrder[]> {
 export async function commitDrafts(orders: DraftOrder[]): Promise<{ goods: number; books: number }> {
   let goodsN = 0
   let booksN = 0
+  const glossary = await liveGlossary()
   await db.transaction('rw', db.orders, db.goods, db.books, async () => {
     for (const o of orders) {
       const picked = o.items.filter((i) => i.selected)
@@ -75,13 +77,13 @@ export async function commitDrafts(orders: DraftOrder[]): Promise<{ goods: numbe
         if (it.kind === 'book') {
           const { series, volume } = parseTitle(it.name)
           await db.books.add({
-            ...common, title: it.name, genre: 'BL', condition: 'new', bookSource: 'online',
-            series, volume, tags: it.tags, zhKeywords: [],
+            ...common, title: it.name, genre: 'BL', condition: it.condition ?? 'new', bookSource: it.bookSource ?? 'online',
+            series, volume, tags: it.tags, zhKeywords: zhFor(`${it.name} ${it.note ?? ''}`, glossary),
           } as Omit<Book, 'id'>)
           booksN++
         } else {
           await db.goods.add({
-            ...common, name: it.name, zhKeywords: [], category: it.category, condition: 'new',
+            ...common, name: it.name, zhKeywords: zhFor(`${it.name} ${it.note ?? ''}`, glossary), category: it.category, condition: it.condition ?? 'new',
             source: o.source, tags: it.tags,
           } as Omit<Goods, 'id'>)
           goodsN++

@@ -5,6 +5,7 @@ import { CONDITION_LABEL, FRIEND_DISCOUNT, GENRES, GENRE_LABEL, SOURCES, SOURCE_
 import { findDuplicates, type DupHit } from '../lib/duplicates'
 import { normalizeIsbn } from '../lib/isbn'
 import DupList from './DupList'
+import GlossaryAdd from './GlossaryAdd'
 import Modal from './Modal'
 import TagPicker from './TagPicker'
 
@@ -22,6 +23,7 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
   const init: Partial<Book> = book ?? prefill ?? {}
   const [title, setTitle] = useState(init.title ?? '')
   const isbn = init.isbn ?? '' // 由掃描帶入，不在這裡手動編輯；用來比對重複
+  const [zh, setZh] = useState(init.zhKeywords?.join(' ') ?? '')
   const [genre, setGenre] = useState<BookGenre>(init.genre ?? 'BL')
   const [condition, setCondition] = useState<Condition>(init.condition ?? 'new')
   const [source, setSource] = useState<BookSource>(init.bookSource ?? 'online')
@@ -62,7 +64,7 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
     }
 
     const common = {
-      title: t, isbn: isbn13 ?? undefined, genre, condition, bookSource: source,
+      title: t, zhKeywords: zh.split(/\s+/).filter(Boolean), isbn: isbn13 ?? undefined, genre, condition, bookSource: source,
       series: series.trim() || undefined,
       volume: num(volume),
       tags, currency, unitPrice: p,
@@ -83,7 +85,7 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
       await db.books.add({
         ...common, collection: 'general', status: 'owned', quantity: 1,
         author: prefill?.author, publisher: prefill?.publisher, coverUrl: prefill?.coverUrl, language: prefill?.language,
-        zhKeywords: [], createdAt: Date.now(),
+        createdAt: Date.now(),
       })
     }
     onClose()
@@ -105,6 +107,8 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
 
       <label>書名<input type="search" value={title} onChange={(e) => { setTitle(e.target.value); setDups([]) }} /></label>
       {isbn && <p className="hint">ISBN {isbn}</p>}
+      <label>中文關鍵字（選填，用空白分開，搜尋用）<input type="search" value={zh} onChange={(e) => setZh(e.target.value)} /></label>
+      <GlossaryAdd name={title} zh={zh} />
 
       <div className="lbl">分類
         <div className="seg2 three">
