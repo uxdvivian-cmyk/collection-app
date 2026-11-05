@@ -12,7 +12,9 @@ App 只使用 Drive 的「應用程式專用資料夾」，看不到你 Drive �
 2. App name 填「收藏帳本」，User support email 選你的信箱，Audience 選 **External**，Contact 填你的信箱 → 建立。
 3. **Data Access**（或 Scopes）→ Add or remove scopes → 加入 `https://www.googleapis.com/auth/drive.appdata` → Save。
 4. **Audience** → 按 **Publish app**（切到 In production）。這個權限屬於低風險範圍，不需要送審。
-   不發布的話，只能用「測試使用者」，而且授權每 7 天會失效。
+   如果「Publish app」是灰的（要求先補完 Branding），可以改成維持 Testing：在 **Audience** 的 **Test users** 按 Add users，
+   加入你要同步的 Google 信箱（電腦和手機都用這個帳號）。Testing 模式登入時會出現「Google hasn't verified this app」，
+   點 **Advanced → Go to 收藏帳本（unsafe）** 繼續；授權大約每 7 天需要重新登入一次。
 
 ## 3. 建立 OAuth 用戶端 ID
 1. **APIs & Services** → **Credentials** → **Create credentials** → **OAuth client ID**。
