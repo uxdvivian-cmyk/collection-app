@@ -5,7 +5,7 @@ import { parseTitle } from '../lib/friendExcel'
 import { getRate, setRate } from '../lib/money'
 import { PREF_API_KEY, PREF_SHEET_URL, getPref, setPref } from '../lib/prefs'
 import { getTheme, setTheme, type ThemeMode } from '../theme'
-import { PREF_AUTO, PREF_CLIENT_ID, getSyncStatus, onSyncStatus, syncNow } from '../lib/sync'
+import { PREF_AUTO, PREF_CLIENT_ID, getSyncStatus, listBackupSnapshots, onSyncStatus, restoreSnapshot, syncNow, type SnapshotInfo } from '../lib/sync'
 
 export default function SettingsPage() {
   const [mode, setMode] = useState<ThemeMode>(getTheme())
@@ -23,6 +23,18 @@ export default function SettingsPage() {
     const all = await db.books.toArray()
     return { live: all.filter((b) => !b.deleted).length, deleted: all.filter((b) => b.deleted).length }
   }, [])
+  const [snaps, setSnaps] = useState<SnapshotInfo[] | null>(null)
+  const [snapMsg, setSnapMsg] = useState('')
+  const loadSnaps = async () => {
+    setSnapMsg('讀取中…')
+    try { setSnaps(await listBackupSnapshots()); setSnapMsg('') } catch (e) { setSnapMsg((e as Error).message) }
+  }
+  const restoreSnap = async (s: SnapshotInfo) => {
+    const day = s.name.replace('snapshot-', '').replace('.json', '')
+    if (!confirm(`要把書單還原成「${day}」的樣子嗎？\n那之後新增的書會被移除。還原前會先自動把現在的狀態備份一份。`)) return
+    setSnapMsg('還原中…')
+    try { const n = await restoreSnapshot(s); setSnapMsg(`已還原，共 ${n} 本。`); setSnaps(null) } catch (e) { setSnapMsg((e as Error).message) }
+  }
   const restoreDeleted = async () => {
     if (!confirm('這會把所有標記為已刪除的書放回清單。確定嗎？')) return
     const del = await db.books.filter((b) => !!b.deleted).toArray()
@@ -123,6 +135,20 @@ export default function SettingsPage() {
         <div className="row"><button className="btn ghost" onClick={restoreDeleted}>找回被標記為刪除的書</button></div>
       )}
       <p className="hint">用戶端 ID 的建立步驟見專案的 docs/google-drive-sync-setup.md。</p>
+
+      <h2>雲端備份快照</h2>
+      <p className="zh">同步時每天會自動多存一份快照到你的 Google Drive，保留最近 14 份。不小心刪錯書時，可以還原成某一天的樣子。</p>
+      <div className="row"><button className="btn ghost" disabled={!clientId.trim()} onClick={loadSnaps}>查看備份</button></div>
+      {snapMsg && <p className="note" role="status">{snapMsg}</p>}
+      {snaps && snaps.length === 0 && <p className="zh">還沒有快照。每天第一次同步成功後就會出現。</p>}
+      {snaps && snaps.map((s) => (
+        <div className="item" key={s.id}>
+          <div className="top">
+            <div className="l"><div className="name">{s.name.replace('snapshot-', '').replace('.json', '')}</div></div>
+            <button className="btn sm ghost" onClick={() => restoreSnap(s)}>還原</button>
+          </div>
+        </div>
+      ))}
 
       <h2>Google 試算表同步（朋友的書單）</h2>
       <label className="lbl">試算表網址（需設為「知道連結的人可檢視」）

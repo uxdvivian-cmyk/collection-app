@@ -11,6 +11,9 @@ export const PREF_AUTO = 'syncAuto' // '0' 關閉，其餘（含空）為開啟
 const PREF_FILE_ID = 'driveFileId'
 const PREF_LAST = 'lastSyncAt'
 const FILE_NAME = 'collection.json'
+const SNAP_PREFIX = 'snapshot-'
+const SNAP_KEEP = 14 // 保留最近幾份每日快照
+const PREF_SNAP_DAY = 'lastSnapshotDay'
 const API = 'https://www.googleapis.com/drive/v3'
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
 
@@ -65,7 +68,7 @@ async function download(token: string, id: string): Promise<{ books: Book[] } | 
   return { books: Array.isArray(j.books) ? j.books : [] }
 }
 
-async function upload(token: string, id: string | null, books: Book[]): Promise<string> {
+async function upload(token: string, id: string | null, books: Book[], name = FILE_NAME): Promise<string> {
   const body = JSON.stringify({ version: 1, savedAt: new Date().toISOString(), books: books.map(({ id: _i, ...r }) => r) })
   if (id) {
     const res = await drive(token, `${UPLOAD}/files/${id}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body })
@@ -73,13 +76,71 @@ async function upload(token: string, id: string | null, books: Book[]): Promise<
     return id
   }
   const boundary = 'collection' + Math.random().toString(36).slice(2)
-  const meta = JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] })
+  const meta = JSON.stringify({ name, parents: ['appDataFolder'] })
   const multipart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`
   const res = await drive(token, `${UPLOAD}/files?uploadType=multipart&fields=id`, {
     method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: multipart,
   })
   if (!res.ok) throw new Error(`Google Drive 建立檔案失敗（${res.status}）`)
   return (await res.json()).id
+}
+
+// ── 每日快照（備份）：同步會把刪除也同步出去，所以每天多留一份，誤刪時可以還原 ──
+export interface SnapshotInfo { id: string; name: string }
+
+async function listSnapshots(token: string): Promise<SnapshotInfo[]> {
+  const q = encodeURIComponent(`name contains '${SNAP_PREFIX}'`)
+  const res = await drive(token, `${API}/files?spaces=appDataFolder&q=${q}&fields=files(id,name)&pageSize=100`)
+  if (!res.ok) throw new Error(`Google Drive 讀取失敗（${res.status}）`)
+  const files: SnapshotInfo[] = (await res.json()).files ?? []
+  return files.sort((a, b) => b.name.localeCompare(a.name)) // 新的在前
+}
+
+const today = () => new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD（本地時間）
+
+/** 每天第一次同步：把「今天開始前」的雲端狀態存成快照，並只保留最近幾份 */
+async function dailySnapshot(token: string, before: Book[]) {
+  const day = today()
+  if (getPref(PREF_SNAP_DAY) === day || before.length === 0) return
+  const snaps = await listSnapshots(token)
+  const hasToday = snaps.some((s) => s.name === `${SNAP_PREFIX}${day}.json`)
+  if (!hasToday) await upload(token, null, before, `${SNAP_PREFIX}${day}.json`)
+  // 總共保留 SNAP_KEEP 份：今天的還沒存的話，舊的只留 SNAP_KEEP - 1 份
+  for (const old of snaps.slice(hasToday ? SNAP_KEEP : SNAP_KEEP - 1)) await drive(token, `${API}/files/${old.id}`, { method: 'DELETE' })
+  setPref(PREF_SNAP_DAY, day)
+}
+
+/** 列出雲端快照（需要登入，由按鈕觸發） */
+export async function listBackupSnapshots(): Promise<SnapshotInfo[]> {
+  const clientId = getPref(PREF_CLIENT_ID)
+  if (!clientId) throw new Error('尚未設定 Google 用戶端 ID')
+  return listSnapshots(await getAccessToken(clientId, true))
+}
+
+/** 還原成某份快照：快照裡有的書放回去，之後新增的書標為刪除；還原前會先把目前的狀態另存一份 */
+export async function restoreSnapshot(s: SnapshotInfo): Promise<number> {
+  const clientId = getPref(PREF_CLIENT_ID)
+  if (!clientId) throw new Error('尚未設定 Google 用戶端 ID')
+  const token = await getAccessToken(clientId, true)
+  const snap = await download(token, s.id)
+  if (!snap) throw new Error('找不到這份快照')
+  const local = await db.books.toArray()
+  const stamp = new Date().toLocaleTimeString('sv-SE').replace(/:/g, '')
+  await upload(token, null, local, `${SNAP_PREFIX}${today()}-還原前-${stamp}.json`)
+  const now = Date.now()
+  const inSnap = new Map(snap.books.filter((b) => b.uid).map((b) => [b.uid!, b]))
+  const localBy = new Map(local.filter((b) => b.uid).map((b) => [b.uid!, b]))
+  await db.transaction('rw', db.books, async () => {
+    for (const l of local) if (l.uid && !inSnap.has(l.uid) && !l.deleted) await db.books.update(l.id!, { deleted: true, updatedAt: now })
+    for (const [uid, rec] of inSnap) {
+      const { id: _drop, ...rest } = rec
+      const ex = localBy.get(uid)
+      if (ex?.id !== undefined) await db.books.put({ ...rest, id: ex.id, updatedAt: now })
+      else await db.books.add({ ...rest, updatedAt: now })
+    }
+  })
+  await syncNow(true).catch(() => undefined) // 立刻把還原後的狀態推上去
+  return inSnap.size
 }
 
 // ── 同步 ──
@@ -116,6 +177,7 @@ export function syncNow(interactive: boolean): Promise<SyncResult> {
         )
       }
 
+      if (remote) await dailySnapshot(token, remote.books).catch(() => undefined) // 備份失敗不影響同步
       if (!remote || toUpload.length) fileId = await upload(token, fileId, merged)
       if (fileId) setPref(PREF_FILE_ID, fileId)
 
