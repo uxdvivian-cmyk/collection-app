@@ -19,7 +19,7 @@ export interface ParsedItem {
 }
 
 export interface ParsedOrder {
-  source: '露天' | 'BOOTH' | 'Animate' | '讀冊' | 'コミコミ'
+  source: string // 露天 / BOOTH / Animate / 讀冊 / コミコミ，或通用解析的「其他」
   orderNo?: string
   date: string // YYYY-MM-DD
   currency: Currency
@@ -265,7 +265,52 @@ function parseComicomi(raw: string, today: string): ParsedOrder | null {
 }
 
 /** 貼上的文字可能包含多筆訂單、來自不同店家；各自解析，依序回傳。 */
+// ── 通用解析（沒有專屬格式的新平台、代購都走這裡）──
+// 不認店家，只看每一行：有價格（¥／円／NT$／元）的就當成一個品項，數量認 x2／×2／2個／2點。
+// 解析結果一律讓你在畫面上確認、改名、改數量、改幣別，所以寧可多抓，不要漏。
+const SKIP_LINE = /送料|運費|运费|郵資|配送|手数料|手續費|消費税|税|合計|合计|小計|小计|総額|總計|總額|total|subtotal|shipping|ポイント|點數|折扣|割引|クーポン|coupon|お支払|付款|代金|電話|住所|〒|@/i
+
+function parseGeneric(raw: string, today: string): ParsedOrder | null {
+  const text = raw.normalize('NFKC')
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const jpy = /円|¥|JPY|yen/i.test(text) && !/NT\$|NTD|TWD|新台幣/i.test(text)
+  const PRICE = /(?:¥|NT\$|\$|TWD|JPY)\s*([\d,]+)|([\d,]+)\s*(?:\(?円\)?|元|JPY|TWD|yen)/i
+  const QTY = /(?:[x×*]\s*(\d{1,3})\b)|(?:(\d{1,3})\s*(?:個|点|點|pcs|件|入|冊|本|セット)\b)|(?:數量[:：\s]*(\d{1,3}))|(?:数量[:：\s]*(\d{1,3}))/i
+  let shipping = 0
+  const items: ParsedItem[] = []
+  for (const l of lines) {
+    if (/送料|運費|运费|郵資|shipping/i.test(l) && !/割引|免運|無料|free/i.test(l)) {
+      const m = l.match(PRICE) ?? l.match(/([\d,]{2,})/)
+      if (m) shipping = Math.max(shipping, num((m[1] ?? m[2] ?? '0')))
+      continue
+    }
+    if (SKIP_LINE.test(l)) continue
+    const pm = l.match(PRICE)
+    if (!pm) continue
+    const price = num(pm[1] ?? pm[2])
+    if (!price) continue
+    const qm = l.match(QTY)
+    const qty = Number(qm?.[1] ?? qm?.[2] ?? qm?.[3] ?? qm?.[4] ?? 1) || 1
+    // 行內有「單價 x 數量 = 小計」時，PRICE 抓到的是第一個（單價）
+    let name = l.replace(/[=＝].*$/, '').replace(new RegExp(PRICE.source, 'ig'), ' ').replace(new RegExp(QTY.source, 'ig'), ' ')
+    name = name.replace(/[()（）\s:：|｜,，]+$/g, '').replace(/^[\s・\-*•●■□\d]+[.)、]?\s+(?=\S)/, '').replace(/\s+/g, ' ').trim()
+    if (name.length < 2 || !/[\p{L}]/u.test(name)) continue
+    const category = guessCategory(name)
+    items.push({
+      kind: category === '其他' ? 'goods' : 'goods', name, category, quantity: qty, unitPrice: price,
+      preorder: /予約|予约|預購|預售|預訂/.test(l), tags: [],
+    })
+  }
+  if (!items.length) return null
+  const orderNo = text.match(/(?:注文番号|訂單編號|订单编号|order\s*(?:no|number|#)?)[\s:：#]*([A-Za-z0-9-]{6,})/i)?.[1]
+  return { source: '其他', orderNo, date: today, currency: jpy ? 'JPY' : 'TWD', domesticShipping: shipping, items }
+}
+
+/** 先試各店家的專屬格式；全部都認不出來才用通用解析 */
 export function parseOrders(text: string, now = new Date()): ParsedOrder[] {
   const today = ymd(now)
-  return [parseRuten(text, today), parseBooth(text, today), parseAnimate(text, today), parseDuku(text, today), parseComicomi(text, today)].filter((o): o is ParsedOrder => !!o)
+  const known = [parseRuten(text, today), parseBooth(text, today), parseAnimate(text, today), parseDuku(text, today), parseComicomi(text, today)].filter((o): o is ParsedOrder => !!o)
+  if (known.length) return known
+  const g = parseGeneric(text, today)
+  return g ? [g] : []
 }
