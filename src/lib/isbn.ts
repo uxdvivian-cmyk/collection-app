@@ -85,11 +85,31 @@ async function fromOpenLibrary(isbn: string): Promise<BookInfo | null> {
   }
 }
 
+async function fromGoogleBooksLoose(isbn: string): Promise<BookInfo | null> {
+  // 有些書用 isbn: 查不到，直接用數字搜尋再挑出 ISBN 吻合的那筆
+  const j = await getJson(`https://www.googleapis.com/books/v1/volumes?q=${isbn}&maxResults=5`)
+  const item = j?.items?.find((it: any) => it?.volumeInfo?.industryIdentifiers?.some((x: { identifier: string }) => x.identifier === isbn)) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const v = item?.volumeInfo
+  if (!v?.title) return null
+  const lang = v.language === 'ja' ? 'ja' : v.language === 'en' ? 'en' : 'zh'
+  return {
+    isbn, title: v.subtitle ? `${v.title} ${v.subtitle}` : v.title, author: v.authors?.join('、'), publisher: v.publisher,
+    coverUrl: v.imageLinks?.thumbnail?.replace(/^http:/, 'https:'), language: lang, source: 'Google Books',
+  }
+}
+
+async function fromOpenLibrarySearch(isbn: string): Promise<BookInfo | null> {
+  const j = await getJson(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name,publisher&limit=1`)
+  const d = j?.docs?.[0]
+  if (!d?.title) return null
+  return { isbn, title: d.title, author: d.author_name?.join('、'), publisher: d.publisher?.[0], language: 'en', source: 'Open Library' }
+}
+
 /** 依 ISBN 查書籍資料。日本書（978-4）先查 openBD，其餘先查 Google Books。查不到回傳 null。 */
 export async function lookupIsbn(isbn: string): Promise<BookInfo | null> {
   const order = isbn.startsWith('9784')
-    ? [fromOpenBD, fromGoogleBooks, fromOpenLibrary]
-    : [fromGoogleBooks, fromOpenLibrary, fromOpenBD]
+    ? [fromOpenBD, fromGoogleBooks, fromGoogleBooksLoose, fromOpenLibrary, fromOpenLibrarySearch]
+    : [fromGoogleBooks, fromGoogleBooksLoose, fromOpenLibrary, fromOpenLibrarySearch, fromOpenBD]
   for (const f of order) {
     const info = await f(isbn)
     if (info) return info

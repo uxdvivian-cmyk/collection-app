@@ -17,6 +17,16 @@ type Phase =
   | { name: 'looking'; isbn: string }
   | { name: 'result'; isbn: string; info: BookInfo | null; hits: DupHit[] }
 
+function prefillFrom(isbn: string, info: BookInfo | null): Partial<Book> {
+  const parsed = info ? parseTitle(info.title) : {}
+  return {
+    isbn, title: info?.title ?? '', author: info?.author, publisher: info?.publisher,
+    coverUrl: info?.coverUrl, language: info?.language,
+    series: info?.series ?? parsed.series, volume: info?.volume ?? parsed.volume,
+    genre: 'BL', condition: 'new',
+  }
+}
+
 export default function IsbnScanner({ books, onAdd, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>({ name: 'scan' })
   const [camError, setCamError] = useState('')
@@ -38,6 +48,11 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
       { isbn, title: info?.title ?? '', series: info?.series ?? parsed.series, volume: info?.volume ?? parsed.volume },
       books,
     )
+    // 查得到書名、也沒有重複：直接帶著資料開啟新增視窗，不用再多按一次
+    if (info && hits.length === 0) {
+      onAdd(prefillFrom(isbn, info))
+      return true
+    }
     setPhase({ name: 'result', isbn, info, hits })
     return true
   }
@@ -79,16 +94,7 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase.name])
 
-  const prefillOf = (r: Extract<Phase, { name: 'result' }>): Partial<Book> => {
-    const info = r.info
-    const parsed = info ? parseTitle(info.title) : {}
-    return {
-      isbn: r.isbn, title: info?.title ?? '', author: info?.author, publisher: info?.publisher,
-      coverUrl: info?.coverUrl, language: info?.language,
-      series: info?.series ?? parsed.series, volume: info?.volume ?? parsed.volume,
-      genre: 'BL', condition: 'new',
-    }
-  }
+  const prefillOf = (r: Extract<Phase, { name: 'result' }>): Partial<Book> => prefillFrom(r.isbn, r.info)
 
   let body
   let actions
@@ -125,7 +131,15 @@ export default function IsbnScanner({ books, onAdd, onClose }: Props) {
             {info?.author ? ` · ${info.author}` : ''}
             {info?.publisher ? ` · ${info.publisher}` : ''}
           </div>
-          {!info && <div className="zh">可以自己輸入書名後再新增。</div>}
+          {!info && (
+            <div className="zh">
+              免費的書籍資料庫沒有收錄這個版本。可以先用下面的連結查書名，再按「新增這本」自己輸入。
+              <br />
+              <a href={`https://search.books.com.tw/search/query/key/${isbn}/cat/all`} target="_blank" rel="noreferrer">博客來</a>
+              {' · '}
+              <a href={`https://www.google.com/search?q=${isbn}`} target="_blank" rel="noreferrer">Google</a>
+            </div>
+          )}
         </div>
         {hits.length > 0 ? (
           <div className="warnbox" role="alert">

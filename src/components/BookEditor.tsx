@@ -124,8 +124,10 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
         </div>
       </div>
 
-      <label>系列名稱（單本留空）<input type="search" value={series} onChange={(e) => { setSeries(e.target.value); setDups([]) }} /></label>
-      <label>第幾卷（選填）<input type="number" inputMode="numeric" value={volume} onChange={(e) => { setVolume(e.target.value); setDups([]) }} /></label>
+      <div className="two sv">
+        <label>系列名稱（單本留空）<input type="search" value={series} onChange={(e) => { setSeries(e.target.value); setDups([]) }} /></label>
+        <label>第幾卷<input type="number" inputMode="numeric" value={volume} onChange={(e) => { setVolume(e.target.value); setDups([]) }} /></label>
+      </div>
 
       <div className="lbl">Tag
         <TagPicker tags={tags} pool={tagPool} onChange={setTags} />
