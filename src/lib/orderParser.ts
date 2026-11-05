@@ -401,6 +401,18 @@ function parseLabeled(raw: string, today: string): ParsedOrder | null {
 // ── 博客來（台灣、台幣）──
 // 訂單頁複製下來只有「訂單總額」，沒有每個品項的單價，所以把總額依數量平均分攤（畫面上可逐筆修正）。
 function parseBooks(raw: string, today: string): ParsedOrder | null {
+  // 訂單詳細頁：「序號<tab>品名<tab>單價<tab>數量」，折扣一律不計
+  if (/商品名稱\s+單價/.test(raw)) {
+    const items: ParsedItem[] = []
+    for (const l of raw.split(/\r?\n/)) {
+      const m = l.match(/^\s*(\d{1,3})\t(.+?)\t([\d,]+)\t(\d{1,3})\s*$/)
+      if (m) items.push({ kind: 'book', name: m[2].trim(), category: 'BL', quantity: Number(m[4]), unitPrice: num(m[3]), preorder: false, tags: [] })
+    }
+    if (items.length) {
+      const dm = raw.match(/訂購時間[:：]\s*(\d{4})\/(\d{2})\/(\d{2})/)
+      return { source: '博客來', orderNo: raw.match(/訂單編號[:：]\s*(\d+)/)?.[1], date: dm ? `${dm[1]}-${dm[2]}-${dm[3]}` : today, currency: 'TWD', domesticShipping: 0, items }
+    }
+  }
   if (!/詳細進度查詢/.test(raw) || !/\d{4}\/\d{2}\/\d{2}/.test(raw)) return null
   const lines = raw.split(/\r?\n/).map((l) => l.replace(/\s+$/, ''))
   const QTY = /^\s*(\d{1,3})\t\s*\d{2}\/\d{2}/
