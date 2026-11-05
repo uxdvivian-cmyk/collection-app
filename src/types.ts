@@ -25,7 +25,10 @@ export interface Order {
 }
 
 interface Base {
-  id?: number
+  id?: number // 只在這支裝置有意義（自動編號）；跨裝置同步靠 uid
+  uid?: string // 跨裝置識別碼（建立時自動產生）
+  updatedAt?: number // 最後修改時間（毫秒），同步時以較新的為準
+  deleted?: boolean // 已刪除（保留紀錄，讓刪除也能同步到其他裝置）
   orderId?: number
   collection: Collection
   status: ItemStatus

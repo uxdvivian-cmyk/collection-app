@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
-import { db, exportBackup, importBackup } from '../db'
+import { useEffect, useRef, useState } from 'react'
+import { db, exportBackup, importBackup, liveBooks } from '../db'
 import { parseTitle } from '../lib/friendExcel'
 import { getRate, setRate } from '../lib/money'
 import { PREF_API_KEY, PREF_SHEET_URL, getPref, setPref } from '../lib/prefs'
 import { getTheme, setTheme, type ThemeMode } from '../theme'
+import { PREF_AUTO, PREF_CLIENT_ID, getSyncStatus, onSyncStatus, syncNow } from '../lib/sync'
 
 export default function SettingsPage() {
   const [mode, setMode] = useState<ThemeMode>(getTheme())
@@ -13,6 +14,10 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState(getPref(PREF_API_KEY))
   const fileRef = useRef<HTMLInputElement>(null)
   const [seriesMsg, setSeriesMsg] = useState('')
+  const [clientId, setClientId] = useState(getPref(PREF_CLIENT_ID))
+  const [auto, setAuto] = useState(getPref(PREF_AUTO) !== '0')
+  const [sync, setSync] = useState(getSyncStatus())
+  useEffect(() => onSyncStatus(setSync), [])
 
   const onTheme = (m: ThemeMode) => { setMode(m); setTheme(m) }
 
@@ -24,7 +29,7 @@ export default function SettingsPage() {
 
   // 依書名重新判斷系列與卷數：只補上還沒有系列的書，手動設定過的不會被改掉
   const onRescan = async () => {
-    const books = await db.books.toArray()
+    const books = await liveBooks()
     let n = 0
     await db.transaction('rw', db.books, async () => {
       for (const b of books) {
@@ -77,6 +82,29 @@ export default function SettingsPage() {
       <label className="lbl">1 日幣 ≈ 幾元台幣（日幣訂單換算台幣用）
         <input type="number" inputMode="decimal" step="0.001" value={rate} onChange={(e) => onRate(e.target.value)} />
       </label>
+
+      <h2>跨裝置同步（Google Drive）</h2>
+      <p className="zh">把書自動同步到你的 Google Drive，電腦和手機的資料就會一致。只使用這個 App 專屬的隱藏資料夾，看不到你 Drive 裡的其他檔案。兩個裝置都填同一個用戶端 ID，並用同一個 Google 帳號登入。</p>
+      <label className="lbl">Google 用戶端 ID
+        <input type="search" value={clientId} placeholder="123456-abc….apps.googleusercontent.com" autoComplete="off"
+          onChange={(e) => { setClientId(e.target.value); setPref(PREF_CLIENT_ID, e.target.value.trim()) }} />
+      </label>
+      <div className="lbl">自動同步
+        <div className="seg2">
+          <button className={auto ? 'on' : ''} onClick={() => { setAuto(true); setPref(PREF_AUTO, '') }}>開</button>
+          <button className={!auto ? 'on' : ''} onClick={() => { setAuto(false); setPref(PREF_AUTO, '0') }}>關</button>
+        </div>
+      </div>
+      <div className="row">
+        <button className="btn" disabled={!clientId.trim() || sync.state === 'syncing'} onClick={() => { void syncNow(true).catch(() => undefined) }}>
+          {sync.lastAt ? '立即同步' : '登入並同步'}
+        </button>
+      </div>
+      <p className={sync.state === 'error' || sync.state === 'needs-login' ? 'err' : 'note'} role="status">
+        {sync.state === 'syncing' ? '同步中…' : sync.message}
+      </p>
+      {sync.lastAt > 0 && <p className="zh">上次同步：{new Date(sync.lastAt).toLocaleString('zh-TW')}{sync.dirty ? ' · 有尚未同步的變更' : ''}</p>}
+      <p className="hint">用戶端 ID 的建立步驟見專案的 docs/google-drive-sync-setup.md。</p>
 
       <h2>Google 試算表同步（朋友的書單）</h2>
       <label className="lbl">試算表網址（需設為「知道連結的人可檢視」）

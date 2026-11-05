@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { liveBooks } from '../db'
 import type { Book, BookGenre } from '../types'
 import { GENRES, GENRE_LABEL } from '../lib/labels'
 import { totalCost, twd } from '../lib/money'
@@ -22,7 +22,7 @@ function missingVolumes(owned: Book[]): number[] {
 }
 
 export default function BooksPage() {
-  const books = useLiveQuery(() => db.books.toArray(), [])
+  const books = useLiveQuery(() => liveBooks(), [])
   const [q, setQ] = useState('')
   const [genre, setGenre] = useState<GenreFilter>('all')
   const [onlyPre, setOnlyPre] = useState(false)

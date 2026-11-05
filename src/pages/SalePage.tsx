@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { liveBooks } from '../db'
 import { CONDITION_LABEL, GENRE_LABEL } from '../lib/labels'
 import { totalCost, twd } from '../lib/money'
 import { useBookActions } from '../lib/bookActions'
@@ -16,7 +16,7 @@ const SCOPES: { id: Scope; label: string }[] = [
 ]
 
 export default function SalePage() {
-  const books = useLiveQuery(() => db.books.toArray(), [])
+  const books = useLiveQuery(() => liveBooks(), [])
   const [scope, setScope] = useState<Scope>('book')
   const [tab, setTab] = useState<Tab>('forsale')
   const [q, setQ] = useState('')

@@ -53,9 +53,9 @@ export default function ImportExcel({ onClose }: { onClose: () => void }) {
 
   const toPreview = async (raw: RawSheets) => {
     const sheets = parseWorkbook(raw)
-    const books = await db.books.toArray()
-    const existing = new Set(books.map((b) => b.importKey).filter((k): k is string => !!k))
-    const matches = findMatches(sheets, books, existing)
+    const all = await db.books.toArray() // 含已刪除的：刪掉的書不會因為重新匯入又跑回來
+    const existing = new Set(all.map((b) => b.importKey).filter((k): k is string => !!k))
+    const matches = findMatches(sheets, all.filter((b) => !b.deleted), existing)
     const sel = new Set<string>()
     for (const s of sheets) for (const r of s.rows) if (r.status === 'import' && !existing.has(r.key)) sel.add(r.key)
     setSelected(sel)

@@ -51,7 +51,7 @@ export function useBookActions(tagPool: string[], books: Book[]) {
     modal = (
       <ConfirmModal title="移除這一筆？" danger confirmText="確定移除" onClose={close}
         message={`「${b.title}」會從收藏刪除，不計入統計。這個動作無法復原。`}
-        onConfirm={() => { void db.books.delete(b.id!); close() }} />
+        onConfirm={() => { void db.books.update(b.id!, { deleted: true }); close() }} />
     )
   }
 

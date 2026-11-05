@@ -158,6 +158,7 @@ export function toBook(r: ParsedRow, condition: Condition): Omit<Book, 'id'> {
     acquiredDate: r.acquiredDate,
     note: r.note,
     importKey: r.key,
+    uid: `imp:${r.key}`,
     createdAt: Date.now(),
   }
 }
