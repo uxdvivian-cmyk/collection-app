@@ -8,13 +8,13 @@ import PriceModal from '../components/PriceModal'
 import ConfirmModal from '../components/ConfirmModal'
 
 type Dialog =
-  | { kind: 'edit'; book?: Book }
+  | { kind: 'edit'; book?: Book; prefill?: Partial<Book> }
   | { kind: 'forsale'; book: Book }
   | { kind: 'sold'; book: Book }
   | { kind: 'delete'; book: Book }
 
 /** 書的「⋯」選單動作與對應的彈出視窗（書頁與出清頁共用）。 */
-export function useBookActions(tagPool: string[]) {
+export function useBookActions(tagPool: string[], books: Book[]) {
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const close = () => setDialog(null)
 
@@ -29,11 +29,11 @@ export function useBookActions(tagPool: string[]) {
     return list
   }
 
-  const openCreate = () => setDialog({ kind: 'edit' })
+  const openCreate = (prefill?: Partial<Book>) => setDialog({ kind: 'edit', prefill })
 
   let modal: ReactNode = null
   if (dialog?.kind === 'edit') {
-    modal = <BookEditor book={dialog.book} tagPool={tagPool} onClose={close} />
+    modal = <BookEditor book={dialog.book} prefill={dialog.prefill} books={books} tagPool={tagPool} onClose={close} />
   } else if (dialog?.kind === 'forsale') {
     const b = dialog.book
     modal = (

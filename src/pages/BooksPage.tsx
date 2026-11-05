@@ -7,6 +7,7 @@ import { totalCost, twd } from '../lib/money'
 import { useBookActions } from '../lib/bookActions'
 import BookCard from '../components/BookCard'
 import ImportExcel from '../components/ImportExcel'
+import IsbnScanner from '../components/IsbnScanner'
 
 type GenreFilter = 'all' | BookGenre
 
@@ -26,9 +27,10 @@ export default function BooksPage() {
   const [genre, setGenre] = useState<GenreFilter>('all')
   const [onlyPre, setOnlyPre] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [scanning, setScanning] = useState(false)
 
   const tagPool = useMemo(() => [...new Set((books ?? []).flatMap((b) => b.tags))], [books])
-  const { actionsFor, openCreate, modal } = useBookActions(tagPool)
+  const { actionsFor, openCreate, modal } = useBookActions(tagPool, books ?? [])
 
   if (!books) return null
 
@@ -64,8 +66,9 @@ export default function BooksPage() {
       <div className="hrow">
         <h1>書</h1>
         <span className="grp">
-          <button className="btn sm ghost" onClick={() => setImporting(true)}>匯入 Excel</button>
-          <button className="btn sm" onClick={openCreate}>＋ 新增</button>
+          <button className="btn sm ghost" onClick={() => setImporting(true)}>匯入</button>
+          <button className="btn sm ghost" onClick={() => setScanning(true)}>掃 ISBN</button>
+          <button className="btn sm" onClick={() => openCreate()}>＋ 新增</button>
         </span>
       </div>
       <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜書名、作者、ISBN、tag" aria-label="搜尋書" />
@@ -86,7 +89,7 @@ export default function BooksPage() {
       {list.length === 0 && (
         <div className="empty">
           <p className="name">{books.length === 0 ? '還沒有書' : '沒有符合的書'}</p>
-          {books.length === 0 && <p className="zh">按右上角「＋ 新增」開始記錄，或用「匯入 Excel」匯入朋友的書單。ISBN 掃描會在下一步加入。</p>}
+          {books.length === 0 && <p className="zh">按右上角「＋ 新增」開始記錄，或「掃 ISBN」查書，也可以用「匯入」匯入朋友的書單。</p>}
         </div>
       )}
 
@@ -106,6 +109,7 @@ export default function BooksPage() {
       })}
       {modal}
       {importing && <ImportExcel onClose={() => setImporting(false)} />}
+      {scanning && <IsbnScanner books={books} onClose={() => setScanning(false)} onAdd={(prefill) => { setScanning(false); openCreate(prefill) }} />}
     </section>
   )
 }

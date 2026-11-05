@@ -2,39 +2,57 @@ import { useState } from 'react'
 import { db } from '../db'
 import type { Book, BookGenre, BookSource, Condition, Currency } from '../types'
 import { CONDITION_LABEL, FRIEND_DISCOUNT, GENRES, GENRE_LABEL, SOURCES, SOURCE_LABEL } from '../lib/labels'
+import { findDuplicates, type DupHit } from '../lib/duplicates'
+import { normalizeIsbn } from '../lib/isbn'
+import DupList from './DupList'
 import Modal from './Modal'
 import TagPicker from './TagPicker'
 
 interface Props {
   book?: Book // 沒有就是新增
+  prefill?: Partial<Book> // 新增時預先帶入（例如掃 ISBN 查到的資料）
+  books: Book[] // 全部的書，用來比對重複
   tagPool: string[]
   onClose: () => void
 }
 
 const num = (s: string) => (s.trim() === '' ? undefined : Number(s))
 
-export default function BookEditor({ book, tagPool, onClose }: Props) {
-  const [title, setTitle] = useState(book?.title ?? '')
-  const [genre, setGenre] = useState<BookGenre>(book?.genre ?? 'BL')
-  const [condition, setCondition] = useState<Condition>(book?.condition ?? 'new')
-  const [source, setSource] = useState<BookSource>(book?.bookSource ?? 'online')
-  const [series, setSeries] = useState(book?.series ?? '')
-  const [volume, setVolume] = useState(book?.volume?.toString() ?? '')
-  const [tags, setTags] = useState<string[]>(book?.tags ?? [])
-  const [currency, setCurrency] = useState<Currency>(book?.currency ?? 'TWD')
-  const [price, setPrice] = useState(book?.unitPrice?.toString() ?? '')
-  const [listPrice, setListPrice] = useState(book?.listPrice?.toString() ?? '')
-  const [preorder, setPreorder] = useState(book?.preorder ?? false)
-  const [month, setMonth] = useState(book?.expectedMonth ?? '')
-  const [note, setNote] = useState(book?.note ?? '')
+export default function BookEditor({ book, prefill, books, tagPool, onClose }: Props) {
+  const init: Partial<Book> = book ?? prefill ?? {}
+  const [title, setTitle] = useState(init.title ?? '')
+  const [isbn, setIsbn] = useState(init.isbn ?? '')
+  const [genre, setGenre] = useState<BookGenre>(init.genre ?? 'BL')
+  const [condition, setCondition] = useState<Condition>(init.condition ?? 'new')
+  const [source, setSource] = useState<BookSource>(init.bookSource ?? 'online')
+  const [series, setSeries] = useState(init.series ?? '')
+  const [volume, setVolume] = useState(init.volume?.toString() ?? '')
+  const [tags, setTags] = useState<string[]>(init.tags ?? [])
+  const [currency, setCurrency] = useState<Currency>(init.currency ?? 'TWD')
+  const [price, setPrice] = useState(init.unitPrice?.toString() ?? '')
+  const [listPrice, setListPrice] = useState(init.listPrice?.toString() ?? '')
+  const [preorder, setPreorder] = useState(init.preorder ?? false)
+  const [month, setMonth] = useState(init.expectedMonth ?? '')
+  const [note, setNote] = useState(init.note ?? '')
   const [saleValue, setSaleValue] = useState((book?.status === 'sold' ? book.soldPrice : book?.askPrice)?.toString() ?? '')
   const [error, setError] = useState('')
+  const [dups, setDups] = useState<DupHit[]>([])
 
   const save = async () => {
     const t = title.trim()
     const p = num(price)
     if (!t) return setError('請輸入書名')
     if (p === undefined || Number.isNaN(p) || p < 0) return setError('請輸入價格')
+    const isbnRaw = isbn.trim()
+    const isbn13 = isbnRaw ? normalizeIsbn(isbnRaw) : null
+    if (isbnRaw && !isbn13) return setError('ISBN 不正確，請檢查數字（或清空）')
+    setError('')
+
+    // 新增時先比對重複：有疑似重複就先警告，再按一次才會新增
+    if (!book && dups.length === 0) {
+      const hits = findDuplicates({ isbn: isbn13 ?? undefined, title: t, series: series.trim() || undefined, volume: num(volume) }, books)
+      if (hits.length) { setDups(hits); return }
+    }
 
     let lp = num(listPrice)
     let estimated = false
@@ -44,7 +62,7 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
     }
 
     const common = {
-      title: t, genre, condition, bookSource: source,
+      title: t, isbn: isbn13 ?? undefined, genre, condition, bookSource: source,
       series: series.trim() || undefined,
       volume: num(volume),
       tags, currency, unitPrice: p,
@@ -64,6 +82,7 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
     } else {
       await db.books.add({
         ...common, collection: 'general', status: 'owned', quantity: 1,
+        author: prefill?.author, publisher: prefill?.publisher, coverUrl: prefill?.coverUrl, language: prefill?.language,
         zhKeywords: [], createdAt: Date.now(),
       })
     }
@@ -74,9 +93,18 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
     <Modal
       title={book ? '編輯' : '新增書籍'}
       onClose={onClose}
-      actions={<><button onClick={onClose}>取消</button><button className="go" onClick={save}>儲存</button></>}
+      actions={<><button onClick={onClose}>取消</button><button className="go" onClick={save}>{dups.length ? '仍要新增' : '儲存'}</button></>}
     >
-      <label>書名<input type="search" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+      {dups.length > 0 && (
+        <div className="warnbox" role="alert">
+          <b>你可能已經有這本</b>
+          <DupList hits={dups} />
+          <p className="zh">確定要再買一本，按右下角「仍要新增」；不是的話請取消。</p>
+        </div>
+      )}
+
+      <label>書名<input type="search" value={title} onChange={(e) => { setTitle(e.target.value); setDups([]) }} /></label>
+      <label>ISBN（選填）<input type="search" inputMode="numeric" value={isbn} onChange={(e) => { setIsbn(e.target.value); setDups([]) }} /></label>
 
       <div className="lbl">分類
         <div className="seg2 three">
@@ -96,8 +124,8 @@ export default function BookEditor({ book, tagPool, onClose }: Props) {
         </div>
       </div>
 
-      <label>系列名稱（單本留空）<input type="search" value={series} onChange={(e) => setSeries(e.target.value)} /></label>
-      <label>第幾卷（選填）<input type="number" inputMode="numeric" value={volume} onChange={(e) => setVolume(e.target.value)} /></label>
+      <label>系列名稱（單本留空）<input type="search" value={series} onChange={(e) => { setSeries(e.target.value); setDups([]) }} /></label>
+      <label>第幾卷（選填）<input type="number" inputMode="numeric" value={volume} onChange={(e) => { setVolume(e.target.value); setDups([]) }} /></label>
 
       <div className="lbl">Tag
         <TagPicker tags={tags} pool={tagPool} onChange={setTags} />

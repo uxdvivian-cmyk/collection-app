@@ -66,7 +66,7 @@ export default function SettingsPage() {
       <label className="lbl">Google Sheets API 金鑰（只存在這支手機）
         <input type="search" value={apiKey} placeholder="AIza…" autoComplete="off" onChange={(e) => { setApiKey(e.target.value); setPref(PREF_API_KEY, e.target.value.trim()) }} />
       </label>
-      <p className="hint">填好後，到「書」按「匯入 Excel」，選「從 Google 試算表同步」。金鑰建立步驟見專案的 docs/google-sheets-setup.md。</p>
+      <p className="hint">填好後，到「書」按「匯入」，選「從 Google 試算表同步」。金鑰建立步驟見專案的 docs/google-sheets-setup.md。</p>
 
       <h2>備份</h2>
       <p className="zh">資料只存在這支手機的瀏覽器裡，請定期匯出備份。</p>

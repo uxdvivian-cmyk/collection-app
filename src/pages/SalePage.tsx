@@ -23,7 +23,7 @@ export default function SalePage() {
   const [copied, setCopied] = useState('')
 
   const tagPool = useMemo(() => [...new Set((books ?? []).flatMap((b) => b.tags))], [books])
-  const { actionsFor, modal } = useBookActions(tagPool)
+  const { actionsFor, modal } = useBookActions(tagPool, books ?? [])
 
   if (!books) return null
 
