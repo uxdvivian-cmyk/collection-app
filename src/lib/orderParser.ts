@@ -398,10 +398,75 @@ function parseLabeled(raw: string, today: string): ParsedOrder | null {
   return { source: store ? store[1] + 'ストア' : '其他', orderNo, date: today, currency: 'JPY', domesticShipping: ship, items }
 }
 
+// ── 博客來（台灣、台幣）──
+// 訂單頁複製下來只有「訂單總額」，沒有每個品項的單價，所以把總額依數量平均分攤（畫面上可逐筆修正）。
+function parseBooks(raw: string, today: string): ParsedOrder | null {
+  if (!/詳細進度查詢/.test(raw) || !/\d{4}\/\d{2}\/\d{2}/.test(raw)) return null
+  const lines = raw.split(/\r?\n/).map((l) => l.replace(/\s+$/, ''))
+  const QTY = /^\s*(\d{1,3})\t\s*\d{2}\/\d{2}/
+  const rows: { name: string; qty: number }[] = []
+  let total = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (!QTY.test(lines[i])) continue
+    let j = i - 1
+    while (j >= 0 && !lines[j].trim()) j--
+    if (j < 0) continue
+    let name = lines[j].trim()
+    // 第一個品項跟訂單資訊同一行：「23:56:11<tab>信用卡線上刷卡<tab>905<tab>品名」
+    if (/^\d{2}:\d{2}:\d{2}\t/.test(name)) {
+      const f = name.split('\t').map((x) => x.trim()).filter(Boolean)
+      name = f[f.length - 1]
+      const t = f.slice(1, -1).reverse().find((x) => /^[\d,]+$/.test(x))
+      if (t) total = num(t)
+    }
+    if (name && name !== '詳細進度查詢') rows.push({ name, qty: Number(lines[i].match(QTY)![1]) })
+  }
+  if (!rows.length) return null
+  const totalQty = rows.reduce((a, r) => a + r.qty, 0)
+  const each = total ? Math.floor(total / totalQty) : 0
+  const items: ParsedItem[] = rows.map((r) => ({
+    kind: 'book', name: r.name, category: 'BL', quantity: r.qty, unitPrice: each, preorder: false, tags: [],
+    note: total ? '博客來未列單價，已把訂單總額平均分攤，請核對' : '博客來未列單價，請手動填',
+  }))
+  if (total && items.length) items[0].unitPrice += total - each * totalQty   // 除不盡的零頭算在第一筆
+  const dm = raw.match(/(\d{4})\/(\d{2})\/(\d{2})\s*\n\s*\d{2}:\d{2}:\d{2}/) ?? raw.match(/(\d{4})\/(\d{2})\/(\d{2})/)
+  return {
+    source: '博客來', orderNo: raw.match(/^\s*(\d{12,16})\s*$/m)?.[1],
+    date: dm ? `${dm[1]}-${dm[2]}-${dm[3]}` : today, currency: 'TWD', domesticShipping: 0, items,
+  }
+}
+
+// ── 金石堂（台灣、台幣）：品名連結後面依序是 訂購量／實出量／售價／優惠折抵／明細小計 ──
+function parseKingstone(raw: string, today: string): ParsedOrder | null {
+  if (!/kingstone\.com\.tw|金石堂/.test(raw) || !/商品名稱/.test(raw)) return null
+  const lines = raw.split(/\r?\n/).map((l) => l.trim())
+  const bullet = (l: string) => l.replace(/^\*\s*/, '').trim()
+  const items: ParsedItem[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\*\s*\[(.+?)\]\(https?:\/\/[^)]*\)\s*$/)
+    if (!m || /聯絡客服|查看發票|購買證明|全家|7-?11|萊爾富|OK/.test(m[1])) continue
+    const vals: string[] = []
+    for (let k = i + 1; k < lines.length && vals.length < 5; k++) {
+      if (!lines[k] || lines[k] === '*') continue
+      if (/^\*\s*\[/.test(lines[k])) break
+      vals.push(bullet(lines[k]))
+    }
+    const qty = Number(vals[0]), price = num(vals[2] ?? '')
+    if (!qty || !price) continue
+    items.push({ kind: 'book', name: m[1].trim(), category: 'BL', quantity: qty, unitPrice: price, preorder: false, tags: [] })
+  }
+  if (!items.length) return null
+  const dm = raw.match(/\*\s*(\d{4})\/(\d{2})\/(\d{2})\s+\d{2}:\d{2}/)
+  return {
+    source: '金石堂', orderNo: raw.match(/\*\s*(\d{12,})\s*$/m)?.[1],
+    date: dm ? `${dm[1]}-${dm[2]}-${dm[3]}` : today, currency: 'TWD', domesticShipping: 0, items,
+  }
+}
+
 /** 先試各店家的專屬格式；全部都認不出來才用通用解析 */
 export function parseOrders(text: string, now = new Date()): ParsedOrder[] {
   const today = ymd(now)
-  const known = [parseRuten(text, today), parseBooth(text, today), parseAnimate(text, today), parseDuku(text, today), parseComicomi(text, today), parseLabeled(text, today)].filter((o): o is ParsedOrder => !!o)
+  const known = [parseRuten(text, today), parseBooth(text, today), parseAnimate(text, today), parseDuku(text, today), parseComicomi(text, today), parseLabeled(text, today), parseBooks(text, today), parseKingstone(text, today)].filter((o): o is ParsedOrder => !!o)
   if (known.length) return known
   const g = parseGeneric(text, today)
   return g ? [g] : []
