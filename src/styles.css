@@ -60,6 +60,15 @@ input[type='search'], input[type='number'], input[type='month'], textarea {
 input[type='search'], input[type='number'], input[type='month'], textarea { width: 100%; }
 textarea { min-height: 150px; }
 button { font: inherit; color: var(--fg); cursor: pointer; }
+/* 搜尋框右側的 ✕ 清除鈕（瀏覽器內建的清除鈕隱藏，避免出現兩個） */
+.searchwrap { position: relative; }
+.searchwrap input { padding-right: 46px; }
+input[type='search']::-webkit-search-cancel-button, input[type='search']::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.searchwrap .clear {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent;
+  color: var(--mut); font-size: 16px; line-height: 1; display: grid; place-items: center;
+}
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .chip {
   background: var(--card); border: 1px solid var(--line); border-radius: 999px;
@@ -170,6 +179,9 @@ a { color: var(--acc); }
 .seg2.three { grid-template-columns: repeat(3, 1fr); }
 .seg2.four { grid-template-columns: repeat(4, 1fr); }
 .seg2 button { min-height: 48px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 15px; }
+/* 彈出視窗裡的選項按鈕縮小（32px 高），減少需要上下捲動的距離 */
+.modal .seg2 { gap: 6px; }
+.modal .seg2 button { min-height: 32px; padding: 4px 8px; font-size: 14px; border-radius: 8px; }
 .seg2 button.on { background: var(--acc); color: var(--on-acc); border-color: var(--acc); font-weight: 600; }
 .tagwrap { position: relative; }
 .tagbox { border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }

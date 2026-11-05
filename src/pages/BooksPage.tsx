@@ -9,6 +9,7 @@ import BookCard from '../components/BookCard'
 import ImportExcel from '../components/ImportExcel'
 import IsbnScanner from '../components/IsbnScanner'
 import SyncBanner from '../components/SyncBanner'
+import SearchInput from '../components/SearchInput'
 
 type GenreFilter = 'all' | BookGenre
 
@@ -73,7 +74,7 @@ export default function BooksPage() {
           <button className="btn sm" onClick={() => openCreate()}>＋ 新增</button>
         </span>
       </div>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜書名、作者、ISBN、tag" aria-label="搜尋書" />
+      <SearchInput value={q} onChange={setQ} placeholder="搜書名、作者、ISBN、tag" ariaLabel="搜尋書" />
       <div className="chips">
         <button className={genre === 'all' ? 'chip on' : 'chip'} onClick={() => setGenre('all')}>全部</button>
         {GENRES.map((g) => (

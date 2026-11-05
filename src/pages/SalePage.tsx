@@ -5,6 +5,7 @@ import { CONDITION_LABEL, GENRE_LABEL } from '../lib/labels'
 import { totalCost, twd } from '../lib/money'
 import { useBookActions } from '../lib/bookActions'
 import BookCard from '../components/BookCard'
+import SearchInput from '../components/SearchInput'
 
 type Scope = 'book' | 'goods' | 'doujin'
 type Tab = 'forsale' | 'sold'
@@ -58,7 +59,7 @@ export default function SalePage() {
   return (
     <section>
       <h1>出清</h1>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜尋出清品項" aria-label="搜尋出清" />
+      <SearchInput value={q} onChange={setQ} placeholder="搜尋出清品項" ariaLabel="搜尋出清" />
       <div className="chips">
         <span className="grp">
           {SCOPES.map((s) => <button key={s.id} className={scope === s.id ? 'chip on' : 'chip'} onClick={() => setScope(s.id)}>{s.label}</button>)}
