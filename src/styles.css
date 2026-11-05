@@ -115,6 +115,11 @@ a { color: var(--acc); }
 .dup-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; }
 .dup-list .name { display: block; font-size: 14px; }
 
+/* 「系列」「單本」兩大區塊的標題 */
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 8px; }
+.sec-head h2 { margin: 0; font-size: 15px; color: var(--fg); }
+.sec-head .zh { margin: 0; }
+
 /* 同系列的群組：一張卡片，沒有標題，每列是完整書名＋集數 */
 .sg-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: visible; }
 .sg-card .item { border: 0; border-radius: 0; margin: 0; background: transparent; }

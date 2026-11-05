@@ -93,20 +93,31 @@ export default function BooksPage() {
         </div>
       )}
 
-      {blocks.map((blk) => {
-        if (blk.items.length === 1 && !blk.key.startsWith('s:')) {
-          const b = blk.items[0]
-          return <BookCard key={blk.key} book={b} actions={actionsFor(b)} />
-        }
-        const items = [...blk.items].sort((x, y) => (x.volume ?? 0) - (y.volume ?? 0))
-        const gap = missingVolumes(books.filter((b) => b.series === items[0].series && b.status !== 'sold'))
-        return (
-          <div className="sg-card" key={blk.key}>
-            {items.map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} />)}
-            {gap.length > 0 && <div className="gnote">缺 第 {gap.join('、')} 卷</div>}
+      {[
+        { title: '系列', blocks: blocks.filter((blk) => !!blk.items[0].series) },
+        { title: '單本', blocks: blocks.filter((blk) => !blk.items[0].series) },
+      ].filter((sec) => sec.blocks.length > 0).map((sec) => (
+        <div key={sec.title}>
+          <div className="sec-head">
+            <h2>{sec.title}</h2>
+            <span className="zh">{sec.blocks.reduce((n, blk) => n + blk.items.length, 0)} 本</span>
           </div>
-        )
-      })}
+          {sec.blocks.map((blk) => {
+            if (blk.items.length === 1 && !blk.key.startsWith('s:')) {
+              const b = blk.items[0]
+              return <BookCard key={blk.key} book={b} actions={actionsFor(b)} />
+            }
+            const items = [...blk.items].sort((x, y) => (x.volume ?? 0) - (y.volume ?? 0))
+            const gap = missingVolumes(books.filter((b) => b.series === items[0].series && b.status !== 'sold'))
+            return (
+              <div className="sg-card" key={blk.key}>
+                {items.map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} />)}
+                {gap.length > 0 && <div className="gnote">缺 第 {gap.join('、')} 卷</div>}
+              </div>
+            )
+          })}
+        </div>
+      ))}
       {modal}
       {importing && <ImportExcel onClose={() => setImporting(false)} />}
       {scanning && <IsbnScanner books={books} onClose={() => setScanning(false)} onAdd={(prefill) => { setScanning(false); openCreate(prefill) }} />}

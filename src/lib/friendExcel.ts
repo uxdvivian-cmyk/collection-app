@@ -53,17 +53,44 @@ export function discountFromNote(note?: string): number | undefined {
   return n > 0 && n < 10 ? n / 10 : undefined
 }
 
-/** 從書名拆出系列與卷數。拆不出來就當單本。 */
+// 版本字樣：判斷卷數前先去掉（長的在前面）
+const EDITION = /豪華限定版|首刷限定版|初回限定版|特別版|特裝版|特典版|同捆版|限定版|首刷|特典|特裝|豪華|限定/g
+
+/** 全形轉半形、補齊不成對的括號、整理空白（朋友的 Excel 常有 "(04" "（３）" 這類寫法） */
+function normalizeTitle(raw: string): string {
+  let t = raw
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/（/g, '(').replace(/）/g, ')')
+    .replace(/[－—–]/g, '-')
+  const open = (t.match(/\(/g) ?? []).length
+  const close = (t.match(/\)/g) ?? []).length
+  if (open > close) t += ')'.repeat(open - close)
+  return t.replace(/\s+/g, ' ').trim()
+}
+
+const tidy = (s: string) => s.replace(/[\s\-(（]+$/g, '').trim()
+
+/**
+ * 從書名拆出系列與卷數。只有書名裡標了集數才算系列；「全」（一本完結）、同捆合輯、拆不出集數的都當單本。
+ * 例：「悠與晴2」「瀲師01特裝版」「前世的我被這傢伙所殺-上」「渣男椎名學長與瘋男佐佐木學弟（３）完」
+ */
 export function parseTitle(title: string): { series?: string; volume?: number } {
-  const t = title
-  if (/[+＋]/.test(t) || /同捆/.test(t)) return {} // 合輯、同捆：當單本
-  if (/(?:^|[\s\-－(（])全[)）]?$/.test(t)) return {} // 「全」：一本完結
-  let m = t.match(/^(.+?)\s*[(（]?\s*([上下])\s*[)）]?$/)
-  if (m && /[\s(（]/.test(t.slice(m[1].length))) return { series: m[1].trim(), volume: m[2] === '上' ? 1 : 2 }
-  m = t.match(/^(.+?)\s*[(（]\s*(\d{1,3})\s*[)）]\s*([^\d]*)$/) // 蜜果(05) 特別版、為了…英雄 (1)
-  if (m) return { series: m[1].trim(), volume: Number(m[2]) }
-  m = t.match(/^(.+?)\s+(\d{1,3})\s*([^\d\s][^\d]*)?$/) // 讓我討厭你 4、異世界社畜 4限定版
-  if (m) return { series: m[1].trim(), volume: Number(m[2]) }
+  let t = normalizeTitle(title)
+  if (/[+＋]/.test(t) || /同捆/.test(t)) return {} // 合輯、同捆
+  if (/(?:^|[\s(\-])全(?:[)\s\-]|$)/.test(t)) return {} // 「全」：一本完結
+  t = t.replace(EDITION, '').replace(/\(\s*\)/g, '').replace(/\s*-\s*$/, '').replace(/\s+/g, ' ').trim()
+  t = t.replace(/完$/, '').trim() // 「(3)完」「-2完」
+
+  let m = t.match(/^(.+?)\s*(?:\(\s*([上下])\s*\)|-\s*([上下])|\s([上下]))$/) // (上) -下 上
+  if (m) return { series: tidy(m[1]), volume: (m[2] ?? m[3] ?? m[4]) === '上' ? 1 : 2 }
+  m = t.match(/^(.+?)\s*\(\s*(\d{1,2})\s*完?\s*\)\s*([^\d]*)$/) // (05) (3完)，後面可接副標
+  if (m) return { series: tidy(m[1]), volume: Number(m[2]) }
+  m = t.match(/^(.+?)\s*第\s*(\d{1,2})\s*[集卷巻]$/) // 第3集
+  if (m) return { series: tidy(m[1]), volume: Number(m[2]) }
+  m = t.match(/^(.+?)\s*-\s*(\d{1,2})\s*完?$/) // -01 -2完
+  if (m) return { series: tidy(m[1]), volume: Number(m[2]) }
+  m = t.match(/^(.*[^\d\s])\s*(\d{1,2})\s*完?$/) // 結尾的數字：悠與晴2、讓我討厭你 4、瀲師01
+  if (m) return { series: tidy(m[1]), volume: Number(m[2]) }
   return {}
 }
 
