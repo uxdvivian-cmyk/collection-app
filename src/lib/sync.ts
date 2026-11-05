@@ -7,6 +7,9 @@ import { clearToken, getAccessToken } from './googleAuth'
 import { getPref, setPref } from './prefs'
 
 export const PREF_CLIENT_ID = 'googleClientId'
+/** 預設的 Google 用戶端 ID（公開資訊，不是密碼）。內建後，新的瀏覽器不用再手動貼，登入就能同步。 */
+export const DEFAULT_CLIENT_ID = '805654477096-rlv4e1fbrvpdbihvacqm62oefarj2ln8.apps.googleusercontent.com'
+export const getClientId = () => getPref(PREF_CLIENT_ID) || DEFAULT_CLIENT_ID
 export const PREF_AUTO = 'syncAuto' // '0' 關閉，其餘（含空）為開啟
 const PREF_FILE_ID = 'driveFileId'
 const PREF_LAST = 'lastSyncAt'
@@ -112,14 +115,14 @@ async function dailySnapshot(token: string, before: Book[]) {
 
 /** 列出雲端快照（需要登入，由按鈕觸發） */
 export async function listBackupSnapshots(): Promise<SnapshotInfo[]> {
-  const clientId = getPref(PREF_CLIENT_ID)
+  const clientId = getClientId()
   if (!clientId) throw new Error('尚未設定 Google 用戶端 ID')
   return listSnapshots(await getAccessToken(clientId, true))
 }
 
 /** 還原成某份快照：快照裡有的書放回去，之後新增的書標為刪除；還原前會先把目前的狀態另存一份 */
 export async function restoreSnapshot(s: SnapshotInfo): Promise<number> {
-  const clientId = getPref(PREF_CLIENT_ID)
+  const clientId = getClientId()
   if (!clientId) throw new Error('尚未設定 Google 用戶端 ID')
   const token = await getAccessToken(clientId, true)
   const snap = await download(token, s.id)
@@ -150,7 +153,7 @@ let running: Promise<SyncResult> | null = null
 export function syncNow(interactive: boolean): Promise<SyncResult> {
   if (running) return running
   running = (async () => {
-    const clientId = getPref(PREF_CLIENT_ID)
+    const clientId = getClientId()
     if (!clientId) throw new Error('尚未設定 Google 用戶端 ID')
     setStatus({ state: 'syncing', message: '同步中…' })
     try {
@@ -200,7 +203,7 @@ export function syncNow(interactive: boolean): Promise<SyncResult> {
 // ── 自動同步：開啟 App 時、資料變更後（延遲幾秒合併成一次）──
 let timer: ReturnType<typeof setTimeout> | undefined
 let started = false
-const autoOn = () => !!getPref(PREF_CLIENT_ID) && getPref(PREF_AUTO) !== '0'
+const autoOn = () => !!getClientId() && getPref(PREF_AUTO) !== '0'
 
 export function initAutoSync() {
   if (started) return

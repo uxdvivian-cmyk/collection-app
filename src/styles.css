@@ -120,6 +120,10 @@ a { color: var(--acc); }
 .sec-head h2 { margin: 0; font-size: 15px; color: var(--fg); }
 .sec-head .zh { margin: 0; }
 
+/* 尚未登入同步的提示 */
+.syncbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--acc) 12%, var(--card)); border: 1px solid var(--acc); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.syncbar .zh { margin: 2px 0 0; }
+
 /* 同系列的群組：一張卡片，沒有標題，每列是完整書名＋集數 */
 .sg-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: visible; }
 .sg-card .item { border: 0; border-radius: 0; margin: 0; background: transparent; }

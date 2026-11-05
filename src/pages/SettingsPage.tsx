@@ -5,7 +5,7 @@ import { parseTitle } from '../lib/friendExcel'
 import { getRate, setRate } from '../lib/money'
 import { PREF_API_KEY, PREF_SHEET_URL, getPref, setPref } from '../lib/prefs'
 import { getTheme, setTheme, type ThemeMode } from '../theme'
-import { PREF_AUTO, PREF_CLIENT_ID, getSyncStatus, listBackupSnapshots, onSyncStatus, restoreSnapshot, syncNow, type SnapshotInfo } from '../lib/sync'
+import { PREF_AUTO, PREF_CLIENT_ID, getClientId, getSyncStatus, listBackupSnapshots, onSyncStatus, restoreSnapshot, syncNow, type SnapshotInfo } from '../lib/sync'
 
 export default function SettingsPage() {
   const [mode, setMode] = useState<ThemeMode>(getTheme())
@@ -15,7 +15,7 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState(getPref(PREF_API_KEY))
   const fileRef = useRef<HTMLInputElement>(null)
   const [seriesMsg, setSeriesMsg] = useState('')
-  const [clientId, setClientId] = useState(getPref(PREF_CLIENT_ID))
+  const [clientId, setClientId] = useState(getClientId())
   const [auto, setAuto] = useState(getPref(PREF_AUTO) !== '0')
   const [sync, setSync] = useState(getSyncStatus())
   useEffect(() => onSyncStatus(setSync), [])

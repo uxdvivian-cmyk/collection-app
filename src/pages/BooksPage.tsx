@@ -8,6 +8,7 @@ import { useBookActions } from '../lib/bookActions'
 import BookCard from '../components/BookCard'
 import ImportExcel from '../components/ImportExcel'
 import IsbnScanner from '../components/IsbnScanner'
+import SyncBanner from '../components/SyncBanner'
 
 type GenreFilter = 'all' | BookGenre
 
@@ -63,6 +64,7 @@ export default function BooksPage() {
 
   return (
     <section>
+      <SyncBanner />
       <div className="hrow">
         <h1>書</h1>
         <span className="grp">
