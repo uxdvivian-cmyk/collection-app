@@ -201,14 +201,15 @@ function parseDuku(text: string, today: string): ParsedOrder | null {
 }
 
 // ── 中央書店コミコミスタジオ（日本、日幣）──
+// 貼上的文字可能是全形／半形混雜（Gmail、網頁複製常見），所以先整份轉成半形再比對。
 const stripBalanced = (s: string, start: string) => {
   let i = s.indexOf(start)
   while (i >= 0) {
     let depth = 0
     let j = i
     for (; j < s.length; j++) {
-      if (s[j] === '（') depth++
-      else if (s[j] === '）' && --depth === 0) break
+      if (s[j] === '(') depth++
+      else if (s[j] === ')' && --depth === 0) break
     }
     s = s.slice(0, i) + s.slice(j + 1)
     i = s.indexOf(start)
@@ -216,27 +217,31 @@ const stripBalanced = (s: string, start: string) => {
   return s
 }
 
-function parseComicomi(text: string, today: string): ParsedOrder | null {
-  if (!/\[受注番号\]/.test(text) || !/\[商品\]/.test(text)) return null
-  const orderNo = text.match(/\[受注番号\]\s*(\d+)/)?.[1]
-  const dm = text.match(/\[日時\]\s*(\d{4})\/(\d{2})\/(\d{2})/)
-  const date = dm ? `${dm[1]}-${dm[2]}-${dm[3]}` : today
-  const sm = text.match(/発送予定日[^\n]*\n\s*(\d{4})\/(\d{2})\/\d{2}/)
-  const shipMonth = sm ? `${sm[1]}-${sm[2]}` : undefined
+// 品項行：「商品名 価格 785(円) x 1(個) = 785(円)」。括號、空白、x 的寫法都放寬。
+const COMI_ITEM = /^\s*(.+?)\s*価格\s*([\d,]+)\s*\(?円\)?\s*[x×]\s*(\d+)\s*\(?個\)?/
+
+function parseComicomi(raw: string, today: string): ParsedOrder | null {
+  const text = raw.normalize('NFKC')
+  const hasItems = text.split(/\r?\n/).some((l) => COMI_ITEM.test(l))
+  if (!hasItems || !/(受注番号|コミコミ|発送予定日|\[商品\])/.test(text)) return null
+
+  const orderNo = text.match(/受注番号\]?\s*(\d{6,})/)?.[1]
+  const dm = text.match(/日時\]?\s*(\d{4})\/(\d{1,2})\/(\d{1,2})/)
+  const date = dm ? `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}` : today
+  const sm = text.match(/発送予定日[\s\S]{0,120}?(\d{4})\/(\d{1,2})\/\d{1,2}/)
+  const shipMonth = sm ? `${sm[1]}-${sm[2].padStart(2, '0')}` : undefined
   // 送料與「送料割引」相抵：免運折扣有套用就是 0（其他折扣一律不計）
-  const sou = num(text.match(/^\s*送料\s+(-?[\d,]+)\(円\)/m)?.[1] ?? '0')
-  const sdisc = num(text.match(/^\s*送料割引\s+(-?[\d,]+)\(円\)/m)?.[1] ?? '0')
+  const sou = num(text.match(/^\s*送料\s+(-?[\d,]+)\s*\(?円/m)?.[1] ?? '0')
+  const sdisc = num(text.match(/^\s*送料割引\s+(-?[\d,]+)\s*\(?円/m)?.[1] ?? '0')
   const shipping = Math.max(0, sou + sdisc)
 
-  const start = text.indexOf('[商品]')
-  const section = text.slice(start)
   const items: ParsedItem[] = []
-  for (const l of section.split(/\r?\n/)) {
-    const m = l.match(/^\s*(.+?)\s+価格\s*([\d,]+)\(円\)\s*x\s*(\d+)\(個\)/)
+  for (const l of text.split(/\r?\n/)) {
+    const m = l.match(COMI_ITEM)
     if (!m) continue
     const notes: string[] = []
     let preorder = !!shipMonth
-    let s = m[1].replace(/\u3000/g, ' ').trim()
+    let s = m[1].replace(/\s+/g, ' ').trim()
     // 開頭的【…】是特典或活動標籤（【受注予約】代表預購）
     s = s.replace(/^((?:【[^】]*】\s*)+)/, (g) => {
       for (const t of g.matchAll(/【([^】]*)】/g)) {
@@ -248,7 +253,7 @@ function parseComicomi(text: string, today: string): ParsedOrder | null {
     // 結尾的活動標籤先去掉；類別用「還帶著括號裡有償特典說明」的名稱來猜（例如杯墊組），再把那段括號從名稱拿掉
     s = s.replace(/(?:\s*【[^】]*(?:締切|キャンペーン|有償特典|特典付|予約)[^】]*】)+\s*$/, '')
     const forGuess = s
-    s = stripBalanced(s, '（有償特典').replace(/\s+/g, ' ').trim()
+    s = stripBalanced(s, '(有償特典').replace(/\s+/g, ' ').trim()
     const category = guessCategory(forGuess)
     items.push({
       kind: category === '其他' ? 'book' : 'goods', name: s, category: category === '其他' ? 'BL' : category,
