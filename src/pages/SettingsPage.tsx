@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { db, exportBackup, importBackup, liveBooks } from '../db'
 import { parseTitle } from '../lib/friendExcel'
 import { getRate, setRate } from '../lib/money'
@@ -18,6 +19,15 @@ export default function SettingsPage() {
   const [auto, setAuto] = useState(getPref(PREF_AUTO) !== '0')
   const [sync, setSync] = useState(getSyncStatus())
   useEffect(() => onSyncStatus(setSync), [])
+  const counts = useLiveQuery(async () => {
+    const all = await db.books.toArray()
+    return { live: all.filter((b) => !b.deleted).length, deleted: all.filter((b) => b.deleted).length }
+  }, [])
+  const restoreDeleted = async () => {
+    if (!confirm('這會把所有標記為已刪除的書放回清單。確定嗎？')) return
+    const del = await db.books.filter((b) => !!b.deleted).toArray()
+    await db.transaction('rw', db.books, async () => { for (const b of del) await db.books.update(b.id!, { deleted: false }) })
+  }
 
   const onTheme = (m: ThemeMode) => { setMode(m); setTheme(m) }
 
@@ -104,6 +114,14 @@ export default function SettingsPage() {
         {sync.state === 'syncing' ? '同步中…' : sync.message}
       </p>
       {sync.lastAt > 0 && <p className="zh">上次同步：{new Date(sync.lastAt).toLocaleString('zh-TW')}{sync.dirty ? ' · 有尚未同步的變更' : ''}</p>}
+      {counts && (
+        <p className="zh">
+          這台裝置上目前有 {counts.live} 本書{counts.deleted > 0 ? `（另有 ${counts.deleted} 本被標記為已刪除，不會顯示）` : ''}。
+        </p>
+      )}
+      {counts && counts.deleted > 0 && (
+        <div className="row"><button className="btn ghost" onClick={restoreDeleted}>找回被標記為刪除的書</button></div>
+      )}
       <p className="hint">用戶端 ID 的建立步驟見專案的 docs/google-drive-sync-setup.md。</p>
 
       <h2>Google 試算表同步（朋友的書單）</h2>
