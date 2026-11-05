@@ -7,10 +7,9 @@ interface Props {
   book: Book
   actions: MenuAction[]
   inSale?: boolean // 出清頁：主價顯示預定出清價／售出價，小字顯示原價
-  label?: string // 在系列群組內時，用卷數取代完整書名
 }
 
-export default function BookCard({ book: b, actions, inSale, label }: Props) {
+export default function BookCard({ book: b, actions, inSale }: Props) {
   const sold = b.status === 'sold'
   const saleView = sold || (inSale && b.status === 'forsale')
   const price = sold ? (b.soldPrice ?? totalCost(b)) : saleView ? (b.askPrice ?? totalCost(b)) : totalCost(b)
@@ -27,7 +26,7 @@ export default function BookCard({ book: b, actions, inSale, label }: Props) {
     <div className="item">
       <div className="top">
         <div className="l">
-          <div className="name">{label ?? b.title}</div>
+          <div className="name">{b.title}</div>
           {b.note && <div className="zh">{b.note}</div>}
           <div className="tags">
             <span className="tag">{GENRE_LABEL[b.genre]}</span>

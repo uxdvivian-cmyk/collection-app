@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import type { Book, BookGenre } from '../types'
-import { volumeLabel } from '../lib/series'
 import { GENRES, GENRE_LABEL } from '../lib/labels'
 import { totalCost, twd } from '../lib/money'
 import { useBookActions } from '../lib/bookActions'
@@ -10,6 +9,16 @@ import BookCard from '../components/BookCard'
 import ImportExcel from '../components/ImportExcel'
 
 type GenreFilter = 'all' | BookGenre
+
+/** 已有卷數中間缺的卷（不知道全套有幾卷，所以只看最小到最大之間的空缺） */
+function missingVolumes(owned: Book[]): number[] {
+  const vols = [...new Set(owned.map((b) => b.volume).filter((v): v is number => typeof v === 'number'))].sort((a, b) => a - b)
+  if (vols.length < 2) return []
+  const have = new Set(vols)
+  const out: number[] = []
+  for (let n = vols[0]; n <= vols[vols.length - 1]; n++) if (!have.has(n)) out.push(n)
+  return out
+}
 
 export default function BooksPage() {
   const books = useLiveQuery(() => db.books.toArray(), [])
@@ -35,14 +44,19 @@ export default function BooksPage() {
   const total = list.reduce((s, b) => s + totalCost(b), 0)
   const pre = list.filter((b) => b.preorder).reduce((s, b) => s + totalCost(b), 0)
 
-  // 一個系列有 2 本以上才分組顯示；單本與只有一本的系列直接列出完整書名
+  // 同一系列有 2 本以上時，併成一個群組（一張卡片、沒有群組標題，每列仍是完整書名＋集數）。
+  // 群組出現在該系列第一本書的位置，其餘單本維持原順序。
   const seriesSize = new Map<string, number>()
   for (const b of books) if (b.series && b.status !== 'sold') seriesSize.set(b.series, (seriesSize.get(b.series) ?? 0) + 1)
-  const groups = new Map<string, Book[]>()
-  const singles: Book[] = []
+  type Block = { key: string; items: Book[] }
+  const blocks: Block[] = []
+  const byKey = new Map<string, Block>()
   for (const b of list) {
-    if (b.series && (seriesSize.get(b.series) ?? 0) >= 2) groups.set(b.series, [...(groups.get(b.series) ?? []), b])
-    else singles.push(b)
+    const grouped = !!b.series && (seriesSize.get(b.series) ?? 0) >= 2
+    const key = grouped ? `s:${b.series}` : `b:${b.id}`
+    let blk = byKey.get(key)
+    if (!blk) { blk = { key, items: [] }; byKey.set(key, blk); blocks.push(blk) }
+    blk.items.push(b)
   }
 
   return (
@@ -76,16 +90,20 @@ export default function BooksPage() {
         </div>
       )}
 
-      {[...groups.entries()].map(([name, items]) => (
-        <div className="sg" key={name}>
-          <div className="ghead"><span className="gname">{name}</span></div>
-          {items
-            .sort((x, y) => (x.volume ?? 0) - (y.volume ?? 0))
-            .map((b) => <BookCard key={b.id} book={b} label={volumeLabel(b)} actions={actionsFor(b)} />)}
-        </div>
-      ))}
-      {singles.length > 0 && groups.size > 0 && <div className="ghead"><span className="gname">其他</span></div>}
-      {singles.map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} />)}
+      {blocks.map((blk) => {
+        if (blk.items.length === 1 && !blk.key.startsWith('s:')) {
+          const b = blk.items[0]
+          return <BookCard key={blk.key} book={b} actions={actionsFor(b)} />
+        }
+        const items = [...blk.items].sort((x, y) => (x.volume ?? 0) - (y.volume ?? 0))
+        const gap = missingVolumes(books.filter((b) => b.series === items[0].series && b.status !== 'sold'))
+        return (
+          <div className="sg-card" key={blk.key}>
+            {items.map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} />)}
+            {gap.length > 0 && <div className="gnote">缺 第 {gap.join('、')} 卷</div>}
+          </div>
+        )
+      })}
       {modal}
       {importing && <ImportExcel onClose={() => setImporting(false)} />}
     </section>
