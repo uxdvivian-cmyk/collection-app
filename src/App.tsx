@@ -2,6 +2,8 @@ import { NavLink, Route, Routes } from 'react-router-dom'
 import BooksPage from './pages/BooksPage'
 import SalePage from './pages/SalePage'
 import SettingsPage from './pages/SettingsPage'
+import GoodsPage from './pages/GoodsPage'
+import PastePage from './pages/PastePage'
 import Placeholder from './pages/Placeholder'
 
 const tabs = [
@@ -27,10 +29,10 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<BooksPage />} />
-          <Route path="/goods" element={<Placeholder title="周邊" note="周邊在第二階段加入：貼文字解析、詞庫、預購、運費均攤。" />} />
+          <Route path="/goods" element={<GoodsPage />} />
           <Route path="/doujin" element={<Placeholder title="同人" note="同人誌與同人周邊在第二階段加入。" />} />
           <Route path="/sale" element={<SalePage />} />
-          <Route path="/paste" element={<Placeholder title="貼文字入庫" note="貼上訂單文字自動拆分品項，在第二階段加入。" />} />
+          <Route path="/paste" element={<PastePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>

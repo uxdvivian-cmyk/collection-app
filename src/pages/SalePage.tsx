@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { liveBooks } from '../db'
+import { liveBooks, liveGoods } from '../db'
 import { CONDITION_LABEL, GENRE_LABEL } from '../lib/labels'
 import { totalCost, twd } from '../lib/money'
 import { useBookActions } from '../lib/bookActions'
+import { useGoodsActions } from '../lib/goodsActions'
 import BookCard from '../components/BookCard'
+import GoodsCard from '../components/GoodsCard'
 import SearchInput from '../components/SearchInput'
 
 type Scope = 'book' | 'goods' | 'doujin'
@@ -18,33 +20,36 @@ const SCOPES: { id: Scope; label: string }[] = [
 
 export default function SalePage() {
   const books = useLiveQuery(() => liveBooks(), [])
+  const goods = useLiveQuery(() => liveGoods(), [])
   const [scope, setScope] = useState<Scope>('book')
   const [tab, setTab] = useState<Tab>('forsale')
   const [q, setQ] = useState('')
   const [copied, setCopied] = useState('')
 
-  const tagPool = useMemo(() => [...new Set((books ?? []).flatMap((b) => b.tags))], [books])
-  const { actionsFor, modal } = useBookActions(tagPool, books ?? [])
+  const tagPool = useMemo(() => [...new Set([...(books ?? []).flatMap((b) => b.tags), ...(goods ?? []).flatMap((g) => g.tags)])], [books, goods])
+  const bookActions = useBookActions(tagPool, books ?? [])
+  const goodsActions = useGoodsActions(tagPool)
 
-  if (!books) return null
+  if (!books || !goods) return null
 
   const ql = q.trim().toLowerCase()
-  const list = scope === 'book'
+  const bookList = scope === 'book'
     ? books.filter((b) => b.status === tab && (!ql || [b.title, b.series ?? '', ...b.tags, ...b.zhKeywords].join(' ').toLowerCase().includes(ql)))
     : []
+  const goodsList = scope === 'goods'
+    ? goods.filter((g) => g.collection !== 'doujin' && g.status === tab && (!ql || [g.name, g.category, ...g.tags, ...g.zhKeywords].join(' ').toLowerCase().includes(ql)))
+    : []
+  const rows: { price: number; cost: number; line: string }[] = [
+    ...bookList.map((b) => ({ price: tab === 'forsale' ? b.askPrice ?? 0 : b.soldPrice ?? 0, cost: totalCost(b), line: `・${b.title}（${GENRE_LABEL[b.genre]}／${CONDITION_LABEL[b.condition]}）　${twd(b.askPrice ?? 0)}` })),
+    ...goodsList.map((g) => ({ price: tab === 'forsale' ? g.askPrice ?? 0 : g.soldPrice ?? 0, cost: totalCost(g), line: `・${g.name}（${g.category}／${CONDITION_LABEL[g.condition]}${g.quantity > 1 ? `×${g.quantity}` : ''}）　${twd(g.askPrice ?? 0)}` })),
+  ]
 
-  const sumText = tab === 'forsale'
-    ? `待出清 ${list.length} 筆，預定 ${twd(list.reduce((s, b) => s + (b.askPrice ?? 0), 0))}`
-    : (() => {
-        const rev = list.reduce((s, b) => s + (b.soldPrice ?? 0), 0)
-        const profit = rev - list.reduce((s, b) => s + totalCost(b), 0)
-        return { rev, profit, n: list.length }
-      })()
+  const revenue = rows.reduce((s, r) => s + r.price, 0)
+  const profit = revenue - rows.reduce((s, r) => s + r.cost, 0)
+  const scopeLabel = SCOPES.find((s) => s.id === scope)!.label
 
-  const exportText = list.length && tab === 'forsale'
-    ? `【出清｜書】共 ${list.length} 件，可議價、可合購\n` +
-      list.map((b) => `・${b.title}（${GENRE_LABEL[b.genre]}／${CONDITION_LABEL[b.condition]}）　${twd(b.askPrice ?? 0)}`).join('\n') +
-      '\n\n私訊洽詢，面交或寄送皆可。'
+  const exportText = rows.length && tab === 'forsale'
+    ? `【出清｜${scopeLabel}】共 ${rows.length} 件，可議價、可合購\n${rows.map((r) => r.line).join('\n')}\n\n私訊洽詢，面交或寄送皆可。`
     : ''
 
   const copy = async () => {
@@ -71,25 +76,26 @@ export default function SalePage() {
         </span>
       </div>
 
-      {scope === 'book' ? (
+      {scope === 'doujin' ? (
+        <div className="empty"><p className="zh">同人的出清會在做完同人後加入。</p></div>
+      ) : (
         <div className="sum">
-          {typeof sumText === 'string'
-            ? <span>{sumText}</span>
+          {tab === 'forsale'
+            ? <span>待出清 {rows.length} 筆，預定 {twd(revenue)}</span>
             : (
               <span>
-                已售出 <b>{sumText.n}</b> 筆，收入 <b>{twd(sumText.rev)}</b>，獲利{' '}
-                <b className={sumText.profit >= 0 ? 'gain' : 'loss'}>{sumText.profit >= 0 ? '+' : ''}{sumText.profit.toLocaleString()}</b>
+                已售出 <b>{rows.length}</b> 筆，收入 <b>{twd(revenue)}</b>，獲利{' '}
+                <b className={profit >= 0 ? 'gain' : 'loss'}>{profit >= 0 ? '+' : ''}{profit.toLocaleString()}</b>
               </span>
             )}
         </div>
-      ) : (
-        <div className="empty"><p className="zh">周邊與同人的出清會在做完周邊、同人後加入。</p></div>
       )}
 
-      {scope === 'book' && list.length === 0 && (
-        <div className="empty"><p className="zh">還沒有品項。到「書」頁按某一筆右邊的「⋯」來標記。</p></div>
+      {scope !== 'doujin' && rows.length === 0 && (
+        <div className="empty"><p className="zh">還沒有品項。到「{scopeLabel}」頁按某一筆右邊的「⋯」來標記。</p></div>
       )}
-      {list.map((b) => <BookCard key={b.id} book={b} actions={actionsFor(b)} inSale />)}
+      {bookList.map((b) => <BookCard key={b.id} book={b} actions={bookActions.actionsFor(b)} inSale />)}
+      {goodsList.map((g) => <GoodsCard key={g.id} goods={g} actions={goodsActions.actionsFor(g)} inSale />)}
 
       {exportText && (
         <>
@@ -98,7 +104,8 @@ export default function SalePage() {
           <div className="row"><button className="btn" onClick={copy}>複製文字</button><span className="zh">{copied}</span></div>
         </>
       )}
-      {modal}
+      {bookActions.modal}
+      {goodsActions.modal}
     </section>
   )
 }

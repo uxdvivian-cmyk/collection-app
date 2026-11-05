@@ -14,6 +14,9 @@ export type Collection = 'general' | 'doujin'
 /** 訂單：運費均攤的單位 */
 export interface Order {
   id?: number
+  uid?: string
+  updatedAt?: number
+  deleted?: boolean
   source: string // 蝦皮 / 露天 / BOOTH / Animate ...
   orderNo?: string
   date: string // YYYY-MM-DD
@@ -29,7 +32,7 @@ interface Base {
   uid?: string // 跨裝置識別碼（建立時自動產生）
   updatedAt?: number // 最後修改時間（毫秒），同步時以較新的為準
   deleted?: boolean // 已刪除（保留紀錄，讓刪除也能同步到其他裝置）
-  orderId?: number
+  orderUid?: string // 所屬訂單的 uid（運費均攤、查看同一筆訂單用）
   collection: Collection
   status: ItemStatus
   preorder?: boolean // 預購中（還沒收到，含「還在朋友那邊」），價格仍計入總花費；到貨後取消
@@ -38,8 +41,8 @@ interface Base {
   unitPrice: number // 商品單價（原幣、折扣前）
   currency: Currency
   fxRate?: number
-  shippingShare?: number // 分攤的國內運費（原幣）
-  intlShippingShare?: number // 分攤的國際運費（原幣）
+  shippingShare?: number // 分攤的國內運費（台幣）
+  intlShippingShare?: number // 分攤的國際運費（台幣）
   askPrice?: number // 待出清的預定出清價（整筆，TWD）
   soldPrice?: number // 實際售出價（整筆，TWD）
   soldDate?: string
@@ -53,6 +56,7 @@ export interface Goods extends Base {
   zhKeywords: string[] // 中文關鍵字，可搜尋
   category: string
   condition: Condition
+  source?: string // 來源店家（露天、BOOTH、Animate…）
   work?: string
   character?: string
   tags: string[] // 社團 / 作者等

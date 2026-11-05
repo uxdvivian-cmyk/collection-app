@@ -133,8 +133,15 @@ a { color: var(--acc); }
 .syncbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--acc) 12%, var(--card)); border: 1px solid var(--acc); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
 .syncbar .zh { margin: 2px 0 0; }
 
+/* 貼文字入庫的解析結果 */
+.draft { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.draft .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.draft label { display: grid; gap: 4px; font-size: 13px; color: var(--mut); }
+.catpick { display: grid; gap: 4px; justify-items: start; }
+.imp-main input[type='search'] { font-size: 15px; }
+
 /* 同系列的群組：一張卡片，沒有標題，每列是完整書名＋集數 */
-.sg-card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--acc); border-radius: 4px 10px 10px 4px; margin-bottom: 8px; overflow: visible; }
+.sg-card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc); border-radius: 4px 10px 10px 4px; margin-bottom: 8px; overflow: visible; }
 .sg-card .item { border: 0; border-radius: 0; margin: 0; background: transparent; }
 .sg-card .item + .item { border-top: 1px solid var(--line); }
 .sg-card .gnote { color: var(--mut); font-size: 13px; padding: 8px 12px; border-top: 1px dashed var(--line); }
@@ -179,9 +186,9 @@ a { color: var(--acc); }
 .seg2.three { grid-template-columns: repeat(3, 1fr); }
 .seg2.four { grid-template-columns: repeat(4, 1fr); }
 .seg2 button { min-height: 48px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 15px; }
-/* 彈出視窗裡的選項按鈕縮小（32px 高），減少需要上下捲動的距離 */
+/* 彈出視窗裡的選項按鈕：大小和外面的篩選鈕（.chip）一樣 */
 .modal .seg2 { gap: 6px; }
-.modal .seg2 button { min-height: 32px; padding: 4px 8px; font-size: 14px; border-radius: 8px; }
+.modal .seg2 button { min-height: 44px; padding: 8px 14px; font-size: 14px; border-radius: 999px; }
 .seg2 button.on { background: var(--acc); color: var(--on-acc); border-color: var(--acc); font-weight: 600; }
 .tagwrap { position: relative; }
 .tagbox { border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
