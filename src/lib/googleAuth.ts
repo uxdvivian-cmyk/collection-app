@@ -18,13 +18,35 @@ function loadGis(): Promise<void> {
   return gisPromise
 }
 
-let cached: { token: string; exp: number } | null = null
-export const hasValidToken = () => !!cached && cached.exp > Date.now() + 60_000
-export const clearToken = () => { cached = null }
+// 登入憑證（約 1 小時有效）。存在瀏覽器裡，重新整理頁面時不必重新登入；
+// 它只能存取這個 App 在 Drive 的專用資料夾，而且一小時後自動失效。
+const TOKEN_KEY = 'googleToken'
+type Token = { token: string; exp: number }
+let cached: Token | null = null
+
+function loadStored(): Token | null {
+  try {
+    const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null') as Token | null
+    return t && t.token && t.exp > Date.now() ? t : null
+  } catch { return null }
+}
+function store(t: Token | null) {
+  try {
+    if (t) localStorage.setItem(TOKEN_KEY, JSON.stringify(t))
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch { /* 無痕模式等情況 */ }
+}
+const current = (): Token | null => {
+  cached ??= loadStored()
+  return cached && cached.exp > Date.now() + 60_000 ? cached : null
+}
+export const hasValidToken = () => !!current()
+export const clearToken = () => { cached = null; store(null) }
 
 /** interactive = true：可以跳出登入視窗（要由使用者按下按鈕觸發）；false：只嘗試靜默取得，失敗就丟錯 */
 export async function getAccessToken(clientId: string, interactive: boolean): Promise<string> {
-  if (hasValidToken()) return cached!.token
+  const ok = current()
+  if (ok) return ok.token
   await loadGis()
   return new Promise((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,6 +57,7 @@ export async function getAccessToken(clientId: string, interactive: boolean): Pr
       callback: (r: { error?: string; error_description?: string; access_token: string; expires_in?: number | string }) => {
         if (r.error) return reject(new Error(r.error_description || r.error))
         cached = { token: r.access_token, exp: Date.now() + (Number(r.expires_in) || 3600) * 1000 }
+        store(cached)
         resolve(r.access_token)
       },
       error_callback: (e: { type?: string; message?: string }) =>
