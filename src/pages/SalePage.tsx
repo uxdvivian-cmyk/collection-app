@@ -33,11 +33,11 @@ export default function SalePage() {
   if (!books || !goods) return null
 
   const ql = q.trim().toLowerCase()
-  const bookList = scope === 'book'
-    ? books.filter((b) => b.status === tab && (!ql || [b.title, b.series ?? '', ...b.tags, ...b.zhKeywords].join(' ').toLowerCase().includes(ql)))
+  const bookList = scope !== 'goods'
+    ? books.filter((b) => (scope === 'doujin') === (b.collection === 'doujin') && b.status === tab && (!ql || [b.title, b.series ?? '', ...b.tags, ...b.zhKeywords].join(' ').toLowerCase().includes(ql)))
     : []
-  const goodsList = scope === 'goods'
-    ? goods.filter((g) => g.collection !== 'doujin' && g.status === tab && (!ql || [g.name, g.category, ...g.tags, ...g.zhKeywords].join(' ').toLowerCase().includes(ql)))
+  const goodsList = scope !== 'book'
+    ? goods.filter((g) => (scope === 'doujin') === (g.collection === 'doujin') && g.status === tab && (!ql || [g.name, g.category, ...g.tags, ...g.zhKeywords].join(' ').toLowerCase().includes(ql)))
     : []
   const rows: { price: number; cost: number; line: string }[] = [
     ...bookList.map((b) => ({ price: tab === 'forsale' ? b.askPrice ?? 0 : b.soldPrice ?? 0, cost: totalCost(b), line: `・${b.title}（${GENRE_LABEL[b.genre]}／${CONDITION_LABEL[b.condition]}）　${twd(b.askPrice ?? 0)}` })),
@@ -76,9 +76,7 @@ export default function SalePage() {
         </span>
       </div>
 
-      {scope === 'doujin' ? (
-        <div className="empty"><p className="zh">同人的出清會在做完同人後加入。</p></div>
-      ) : (
+      {(
         <div className="sum">
           {tab === 'forsale'
             ? <span>待出清 {rows.length} 筆，預定 {twd(revenue)}</span>
@@ -91,7 +89,7 @@ export default function SalePage() {
         </div>
       )}
 
-      {scope !== 'doujin' && rows.length === 0 && (
+      {rows.length === 0 && (
         <div className="empty"><p className="zh">還沒有品項。到「{scopeLabel}」頁按某一筆右邊的「⋯」來標記。</p></div>
       )}
       {bookList.map((b) => <BookCard key={b.id} book={b} actions={bookActions.actionsFor(b)} inSale />)}

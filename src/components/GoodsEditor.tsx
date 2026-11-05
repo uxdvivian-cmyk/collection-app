@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { db } from '../db'
-import type { Condition, Currency, Goods } from '../types'
+import type { Collection, Condition, Currency, Goods } from '../types'
 import { CONDITION_LABEL } from '../lib/labels'
 import { getRate } from '../lib/money'
 import CategoryPicker from './CategoryPicker'
@@ -11,12 +11,13 @@ import TagPicker from './TagPicker'
 interface Props {
   goods?: Goods // 沒有就是新增
   tagPool: string[]
+  collection?: Collection // 新增時的收藏區（預設一般）
   onClose: () => void
 }
 
 const num = (s: string) => (s.trim() === '' ? undefined : Number(s))
 
-export default function GoodsEditor({ goods, tagPool, onClose }: Props) {
+export default function GoodsEditor({ goods, tagPool, collection = 'general', onClose }: Props) {
   const [name, setName] = useState(goods?.name ?? '')
   const [zh, setZh] = useState(goods?.zhKeywords.join(' ') ?? '')
   const [category, setCategory] = useState(goods?.category ?? '壓克力牌')
@@ -56,7 +57,7 @@ export default function GoodsEditor({ goods, tagPool, onClose }: Props) {
       })
     } else {
       await db.goods.add({
-        ...common, collection: 'general', status: 'owned',
+        ...common, collection, status: 'owned',
         fxRate: currency === 'JPY' ? getRate() : undefined, createdAt: Date.now(),
       })
     }

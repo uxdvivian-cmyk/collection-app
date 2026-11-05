@@ -14,6 +14,7 @@ export interface ParsedItem {
   note?: string
   tags: string[]
   deferred?: string // 暫時不能匯入的原因（例如同人誌要等同人分頁）
+  doujin?: boolean // 同人（同人誌或同人周邊）
   condition?: Condition // 預設新品
   bookSource?: BookSource // 書的來源，預設網購
 }
@@ -129,10 +130,11 @@ function parseBooth(text: string, today: string): ParsedOrder | null {
     if (!m) continue
     const raw = m[1].trim()
     const name = raw.replace(/[（(]\s*全\s*\d+\s*種\s*[)）]/g, '').replace(/\s+/g, ' ').trim()
+    // 品名像同人誌（本、新刊、アンソロジー…）就預設為同人誌，其他維持周邊；畫面上都能改
+    const isBook = DOUJIN_WORDS.test(raw)
     items.push({
-      kind: 'goods', name, category: guessCategory(raw), quantity: Number(m[3]), unitPrice: num(m[2]),
-      preorder: false, tags: [],
-      deferred: DOUJIN_WORDS.test(raw) ? '像是同人誌，請等「同人」分頁完成後再匯入' : undefined,
+      kind: isBook ? 'book' : 'goods', name, category: isBook ? 'BL' : guessCategory(raw), quantity: Number(m[3]), unitPrice: num(m[2]),
+      preorder: false, tags: [], doujin: isBook || undefined,
     })
   }
   return items.length ? { source: 'BOOTH', orderNo, date, currency: 'JPY', domesticShipping: 0, items } : null

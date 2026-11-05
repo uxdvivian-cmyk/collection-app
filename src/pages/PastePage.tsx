@@ -33,6 +33,7 @@ export default function PastePage() {
 
   const picked = drafts?.flatMap((o) => o.items.filter((i) => i.selected)) ?? []
   const goodsN = picked.filter((i) => i.kind === 'goods').length
+  const doujinN = picked.filter((i) => i.doujin).length
 
   const importNow = async () => {
     if (!drafts) return
@@ -46,7 +47,7 @@ export default function PastePage() {
     <section>
       <SyncBanner />
       <h1>貼文字入庫</h1>
-      <p className="zh">整段貼上訂單文字（個資不會被讀取）。露天、BOOTH、Animate、讀冊、コミコミ有專屬解析；其他平台或代購會用通用解析，抓每行的價格與數量，你確認後再入庫。買的是書會自動進「書」；品名裡有詞庫的日文詞，會自動帶出中文關鍵字。</p>
+      <p className="zh">整段貼上訂單文字（個資不會被讀取）。露天、BOOTH、Animate、讀冊、コミコミ有專屬解析；其他平台或代購會用通用解析，抓每行的價格與數量，你確認後再入庫。買的是書會自動進「書」；同人誌、同人周邊在每一列按「同人」切換；品名裡有詞庫的日文詞，會自動帶出中文關鍵字。</p>
       <textarea value={text} onChange={(e) => setText(e.target.value)} aria-label="貼上訂單文字" placeholder="在這裡貼上訂單文字…" />
       <div className="row"><button className="btn" disabled={!text.trim()} onClick={parse}>解析</button></div>
       {msg && <p className="err" role="alert">{msg}</p>}
@@ -91,6 +92,7 @@ export default function PastePage() {
                         {!i.deferred
                           ? <button type="button" className="tag tagbtn" aria-label="切換周邊或書" onClick={() => patchItem(o.key, i.key, { kind: i.kind === 'book' ? 'goods' : 'book' })}>{i.kind === 'book' ? '書' : '周邊'} ⇄</button>
                           : <span className="tag">周邊</span>}
+                        {!i.deferred && <button type="button" className={'tag tagbtn' + (i.doujin ? ' on' : '')} aria-pressed={!!i.doujin} aria-label="切換同人" onClick={() => patchItem(o.key, i.key, { doujin: !i.doujin })}>{i.doujin ? '同人 ✓' : '同人'}</button>}
                         {i.condition === 'used' && <span className="tag used">二手</span>}
                         {i.preorder && <span className="tag pre">預購中{i.expectedMonth ? ' ' + i.expectedMonth : ''}</span>}
                         <span className="tag">{o.currency === 'JPY' ? '¥' + i.unitPrice.toLocaleString() : 'NT$ ' + i.unitPrice.toLocaleString()}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
@@ -115,7 +117,7 @@ export default function PastePage() {
           })}
           <div className="row">
             <button className="btn" disabled={picked.length === 0} onClick={importNow}>
-              {picked.length === 0 ? '沒有勾選的品項' : `匯入 ${picked.length} 筆（周邊 ${goodsN}、書 ${picked.length - goodsN}）`}
+              {picked.length === 0 ? '沒有勾選的品項' : `匯入 ${picked.length} 筆（周邊 ${goodsN}、書 ${picked.length - goodsN}${doujinN ? `；其中同人 ${doujinN}` : ''}）`}
             </button>
           </div>
         </>

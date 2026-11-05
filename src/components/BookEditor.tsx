@@ -83,7 +83,7 @@ export default function BookEditor({ book, prefill, books, tagPool, onClose }: P
       })
     } else {
       await db.books.add({
-        ...common, collection: 'general', status: 'owned', quantity: 1,
+        ...common, collection: prefill?.collection ?? 'general', status: 'owned', quantity: 1,
         author: prefill?.author, publisher: prefill?.publisher, coverUrl: prefill?.coverUrl, language: prefill?.language,
         createdAt: Date.now(),
       })

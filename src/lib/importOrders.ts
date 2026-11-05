@@ -67,7 +67,7 @@ export async function commitDrafts(orders: DraftOrder[]): Promise<{ goods: numbe
 
       for (const it of picked) {
         const common = {
-          orderUid: order?.uid, collection: 'general' as const, status: 'owned' as const,
+          orderUid: order?.uid, collection: (it.doujin ? 'doujin' : 'general') as 'doujin' | 'general', status: 'owned' as const,
           quantity: it.quantity, unitPrice: it.unitPrice, currency: o.currency,
           fxRate: o.currency === 'JPY' ? fx : undefined,
           shippingShare: Math.round(domShare) || undefined, intlShippingShare: Math.round(intlShare) || undefined,

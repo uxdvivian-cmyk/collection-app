@@ -24,7 +24,7 @@ function missingVolumes(owned: Book[]): number[] {
 }
 
 export default function BooksPage() {
-  const books = useLiveQuery(() => liveBooks(), [])
+  const books = useLiveQuery(async () => (await liveBooks()).filter((b) => b.collection !== 'doujin'), [])
   const [q, setQ] = useState('')
   const [genre, setGenre] = useState<GenreFilter>('all')
   const [onlyPre, setOnlyPre] = useState(false)

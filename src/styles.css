@@ -218,3 +218,4 @@ a.btn { text-decoration: none; display: inline-grid; place-items: center; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .linkbtn { background: none; border: 0; color: var(--acc); text-decoration: underline; padding: 8px 0; min-height: 44px; font: inherit; }
+.tag.tagbtn.on { background: var(--acc); color: #fff; border-color: var(--acc); }

@@ -42,7 +42,7 @@ export default function GoodsPage() {
       <SyncBanner />
       <div className="hrow">
         <h1>周邊</h1>
-        <button className="btn sm" onClick={openCreate}>＋ 新增</button>
+        <button className="btn sm" onClick={() => openCreate()}>＋ 新增</button>
       </div>
       <SearchInput value={q} onChange={setQ} placeholder="搜品名、中文關鍵字、類別、tag" ariaLabel="搜尋周邊" />
       <div className="chips">

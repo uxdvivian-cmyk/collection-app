@@ -5,7 +5,7 @@ import SettingsPage from './pages/SettingsPage'
 import GoodsPage from './pages/GoodsPage'
 import PastePage from './pages/PastePage'
 import GlossaryPage from './pages/GlossaryPage'
-import Placeholder from './pages/Placeholder'
+import DoujinPage from './pages/DoujinPage'
 
 const tabs = [
   { to: '/', label: '書', icon: '📚' },
@@ -31,7 +31,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<BooksPage />} />
           <Route path="/goods" element={<GoodsPage />} />
-          <Route path="/doujin" element={<Placeholder title="同人" note="同人誌與同人周邊在第二階段加入。" />} />
+          <Route path="/doujin" element={<DoujinPage />} />
           <Route path="/sale" element={<SalePage />} />
           <Route path="/paste" element={<PastePage />} />
           <Route path="/settings" element={<SettingsPage />} />

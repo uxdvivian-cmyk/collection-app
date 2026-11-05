@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { db } from '../db'
-import type { Goods } from '../types'
+import type { Collection, Goods } from '../types'
 import type { MenuAction } from '../components/ItemMenu'
 import GoodsEditor from '../components/GoodsEditor'
 import PriceModal from '../components/PriceModal'
 import ConfirmModal from '../components/ConfirmModal'
 
 type Dialog =
-  | { kind: 'edit'; goods?: Goods }
+  | { kind: 'edit'; goods?: Goods; collection?: Collection }
   | { kind: 'forsale'; goods: Goods }
   | { kind: 'sold'; goods: Goods }
   | { kind: 'delete'; goods: Goods }
@@ -28,11 +28,11 @@ export function useGoodsActions(tagPool: string[]) {
     return list
   }
 
-  const openCreate = () => setDialog({ kind: 'edit' })
+  const openCreate = (collection?: Collection) => setDialog({ kind: 'edit', collection })
 
   let modal: ReactNode = null
   if (dialog?.kind === 'edit') {
-    modal = <GoodsEditor goods={dialog.goods} tagPool={tagPool} onClose={close} />
+    modal = <GoodsEditor goods={dialog.goods} tagPool={tagPool} collection={dialog.collection} onClose={close} />
   } else if (dialog?.kind === 'forsale') {
     const g = dialog.goods
     modal = (
