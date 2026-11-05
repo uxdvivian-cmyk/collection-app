@@ -144,6 +144,7 @@ a { color: var(--acc); }
 }
 .menu button:last-child { border-bottom: 0; }
 .menu button.danger { color: var(--bad); }
+.menu.up { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 4px; }
 .menu button.add { color: var(--acc); }
 .menu .hint { padding: 12px 14px; margin: 0; }
 
